@@ -1,4 +1,15 @@
 const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const fs = require('fs');
+const path = require('path');
+
+// Secure runtime pathing explicitly tailored for Railway permanent volume allocations
+const dataDir = fs.existsSync('/data') ? '/data' : process.cwd();
+const VOUCH_FILE = path.join(dataDir, 'vouches.json');
+
+// Automatic directory initialization guard
+if (!fs.existsSync(dataDir)) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
 
 module.exports = {
   name: 'ticketsystem',
@@ -104,7 +115,6 @@ module.exports = {
       return await interaction.editReply({ embeds: [claimedEmbed], components: [actionRow] });
     }
 
-    // 🔒 FEATURE 2: AUTOMATED VOUCH GENERATION TRIGGER MATRIX
     if (interaction.customId === 'close_mm_ticket') {
       const isStaff = interaction.member.roles.cache.some(r => EXCLUSIVE_STAFF_ROLES.includes(r.id));
       if (!isStaff) {
@@ -138,6 +148,40 @@ module.exports = {
       );
 
       return await interaction.update({ embeds: [vouchEmbed], components: [vouchRow] });
+    }
+
+    if (interaction.customId.startsWith('submit_auto_vouch_')) {
+      const middlemanId = interaction.customId.split('_')[3];
+
+      if (interaction.user.id === middlemanId) {
+        return interaction.reply({ content: '❌ Anti-Exploit Override: You cannot vouch for yourself!', ephemeral: true });
+      }
+
+      // Read database file securely from persistent volume space safely
+      let db = {};
+      if (fs.existsSync(VOUCH_FILE)) {
+        try {
+           db = JSON.parse(fs.readFileSync(VOUCH_FILE, 'utf8'));
+        } catch (e) {
+           db = {};
+        }
+      }
+
+      // Increment flat database state architecture safely 
+      db[middlemanId] = (db[middlemanId] || 0) + 1;
+
+      // Force synchronous permanent filesystem lock down 
+      fs.writeFileSync(VOUCH_FILE, JSON.stringify(db, null, 2), 'utf8');
+
+      const disabledRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`used_vouch_${middlemanId}`).setLabel('✅ Vouch Submitted Successfully').setStyle(ButtonStyle.Success).setDisabled(true),
+        new ButtonBuilder().setCustomId('force_purge_ticket').setLabel('⛔ Delete Channel').setStyle(ButtonStyle.Danger)
+      );
+
+      return await interaction.update({ 
+        content: `🎉 Thank you **${interaction.user.username}**! Your automated vouch has been recorded safely inside the database. (Total: **${db[middlemanId]}**)`, 
+        components: [disabledRow] 
+      });
     }
 
     if (interaction.customId === 'mm_trade_failed' || interaction.customId === 'force_purge_ticket') {
