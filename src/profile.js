@@ -4,15 +4,20 @@ const path = require('path');
 
 // Safe shared production database routing
 const dataDir = process.env.RAILWAY_ENVIRONMENT ? '/data' : process.cwd();
-const vouchFilePath = path.join(dataDir, 'vouches.json');
 
-// Ensure the data directory and file exist so it never crashes
+// Define ALL file paths your profile card needs
+const vouchFilePath = path.join(dataDir, 'vouches.json');
+const scamFilePath = path.join(dataDir, 'scam_records.json');
+const dutyFilePath = path.join(dataDir, 'mm_duty_status.json');
+
+// Ensure the data directory exists
 if (!fs.existsSync(dataDir) && process.env.RAILWAY_ENVIRONMENT) {
     fs.mkdirSync(dataDir, { recursive: true });
 }
-if (!fs.existsSync(vouchFilePath)) {
-    fs.writeFileSync(vouchFilePath, JSON.stringify({}), 'utf8');
-}
+// Safeguard all files from missing errors
+if (!fs.existsSync(vouchFilePath)) fs.writeFileSync(vouchFilePath, JSON.stringify({}), 'utf8');
+if (!fs.existsSync(scamFilePath)) fs.writeFileSync(scamFilePath, JSON.stringify({}), 'utf8');
+if (!fs.existsSync(dutyFilePath)) fs.writeFileSync(dutyFilePath, JSON.stringify({}), 'utf8');
 
 module.exports = {
   data: new SlashCommandBuilder()
