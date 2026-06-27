@@ -11,15 +11,16 @@ module.exports = {
 
     const initialAmount = interaction.options.getInteger('amount');
     const handlingFee = Math.round(initialAmount * 0.05);
-    const payoutReturn = initialAmount - handlingFee;
+    // ⚔️ Math adjusted: Add the fee to the base value so they know total to pay
+    const totalToPay = initialAmount + handlingFee;
 
     const embed = new EmbedBuilder()
       .setTitle('📊 Imperial Market Ledger Breakdown')
       .setColor('#a04be0')
       .addFields(
-        { name: '💰 Base Trade Worth', value: `\`${initialAmount.toLocaleString()}\``, inline: false },
+        { name: '💰 Trade Worth', value: `\`${initialAmount.toLocaleString()}\``, inline: false },
         { name: '🛡️ Middleman Fee (5%)', value: `\`${handlingFee.toLocaleString()}\``, inline: true },
-        { name: '🎁 Payout Yield (Net)', value: `\`${payoutReturn.toLocaleString()}\``, inline: true }
+        { name: '💳 Total you need to pay', value: `\`${totalToPay.toLocaleString()}\``, inline: true }
       )
       .setDescription('Ensure both parties fully accept this valuation model before transferring assets inside the session.')
       .setTimestamp();
