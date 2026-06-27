@@ -2,12 +2,16 @@ const { EmbedBuilder, SlashCommandBuilder, PermissionFlagsBits } = require('disc
 const fs = require('fs');
 const path = require('path');
 
-// Target the shared permanent volume folder explicitly
+// Safe shared production database routing
 const dataDir = process.env.RAILWAY_ENVIRONMENT ? '/data' : process.cwd();
-const VOUCH_FILE = path.join(dataDir, 'vouches.json');
+const vouchFilePath = path.join(dataDir, 'vouches.json');
 
+// Ensure the data directory and file exist so it never crashes
 if (!fs.existsSync(dataDir) && process.env.RAILWAY_ENVIRONMENT) {
     fs.mkdirSync(dataDir, { recursive: true });
+}
+if (!fs.existsSync(vouchFilePath)) {
+    fs.writeFileSync(vouchFilePath, JSON.stringify({}), 'utf8');
 }
 
 module.exports = {
