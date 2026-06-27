@@ -12,7 +12,8 @@ module.exports = {
     const reason = interaction.options.getString('reason');
     const proofAttachment = interaction.options.getAttachment('proof');
 
-    const staffLogChannelId = '1520312703472631838'; // Update to your official staff log channel ID if needed
+    // Directed safely straight to your dedicated #scam-logs room
+    const staffLogChannelId = '1520328050758123581'; 
     const logChannel = interaction.guild.channels.cache.get(staffLogChannelId);
 
     const embed = new EmbedBuilder()
