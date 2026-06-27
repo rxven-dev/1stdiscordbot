@@ -2,7 +2,8 @@ const { EmbedBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
-const STATUS_FILE = path.join(__dirname, '../mm_duty_status.json');
+const dataDir = fs.existsSync('/data') ? '/data' : process.cwd();
+const STATUS_FILE = path.join(dataDir, 'mm_duty_status.json');
 
 module.exports = {
   name: 'mmstatus',

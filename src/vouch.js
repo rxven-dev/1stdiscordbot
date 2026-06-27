@@ -2,7 +2,8 @@ const fs = require('fs');
 const { EmbedBuilder } = require('discord.js');
 const path = require('path');
 
-const VOUCH_FILE = path.join(__dirname, '../vouches.json');
+const dataDir = fs.existsSync('/data') ? '/data' : process.cwd();
+const VOUCH_FILE = path.join(dataDir, 'vouches.json');
 
 module.exports = {
   async executeVouch(interaction) {

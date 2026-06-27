@@ -48,7 +48,10 @@ const client = new Client({
 // --- LIVE ROSTER COUPLING ENGINE HOOK ---
 async function updateLiveRosterPanel(discordClient) {
   const ROSTER_CHANNEL_ID = '1520312877343445114';
-  const STATUS_FILE = path.join(__dirname, '../mm_duty_status.json');
+  const dataDir = fs.existsSync('/data') ? '/data' : process.cwd();
+  const STATUS_FILE = path.join(dataDir, 'mm_duty_status.json');
+  const vouchFilePath = path.join(dataDir, 'vouches.json');
+  const trackFilePath = path.join(dataDir, 'vouch_claims_tracks.json');
   
   try {
     const channel = await discordClient.channels.fetch(ROSTER_CHANNEL_ID).catch(() => null);

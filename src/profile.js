@@ -3,8 +3,9 @@ const fs = require('fs');
 const path = require('path');
 
 // Safe dynamic relative links to your main root database files
-const scamFilePath = path.join(__dirname, '../scam_records.json');
-const vouchFilePath = path.join(__dirname, '../vouches.json');
+const dataDir = fs.existsSync('/data') ? '/data' : process.cwd();
+const scamFilePath = path.join(dataDir, 'scam_records.json');
+const vouchFilePath = path.join(dataDir, 'vouches.json');
 
 module.exports = {
   data: new SlashCommandBuilder()
