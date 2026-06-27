@@ -76,19 +76,6 @@ runModule('./reaction-roles.js', 'Unified-Reaction-Roles');
 client.once('ready', async () => {
   console.log(`✅ Logged in successfully as ${client.user.tag}`);
   
-  // 🧹 EMERGENCY CLOUD DATABASE RESET SWITCH
-  try {
-    const fs = require('fs');
-    const path = require('path');
-    const scamFilePath = path.join(__dirname, '../scam_records.json');
-    
-    // Explicitly write an empty JSON object to the active environment's record file
-    fs.writeFileSync(scamFilePath, JSON.stringify({}, null, 2));
-    console.log('🧼 CLOUD DATA PURGE COMPLETE: scam_records.json has been force-cleared.');
-  } catch (err) {
-    console.error('❌ Failed to force clear cloud file:', err.message);
-  }
-
   console.log('⚡ Initializing background text/reaction structures...');
   activeModules.forEach(mod => {
     try {
