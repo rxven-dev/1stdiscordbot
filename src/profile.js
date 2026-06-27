@@ -1,4 +1,4 @@
-const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder, PermissionFlagsBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
@@ -41,12 +41,13 @@ module.exports = {
     let totalVouches = 0;
     if (fs.existsSync(vouchFilePath)) {
       try {
-        const jsonString = fs.readFileSync(vouchFilePath, 'utf8');
-        // Handle empty or clean file gracefully
-        if (jsonString && jsonString.trim() !== '{}' && jsonString.trim() !== '') {
-          const vouchData = JSON.parse(jsonString);
-          if (vouchData[targetUser.id] && vouchData[targetUser.id].count !== undefined) {
+        const vouchData = JSON.parse(fs.readFileSync(vouchFilePath, 'utf8'));
+        if (vouchData[targetUser.id] !== undefined) {
+          // FIXED: Support both object format (.count) or flat integer format directly
+          if (typeof vouchData[targetUser.id] === 'object' && vouchData[targetUser.id].count !== undefined) {
             totalVouches = Number(vouchData[targetUser.id].count) || 0;
+          } else {
+            totalVouches = Number(vouchData[targetUser.id]) || 0;
           }
         }
       } catch (err) {
@@ -54,16 +55,19 @@ module.exports = {
       }
     }
 
-    // --- 3. EXPLICIT SERVER ROLE MATRIX IDs ---
-    const ROLE_LORD_COMMANDER = '1414079432741617724'; // Moderator
-    const ROLE_HIGH_CHANCELLOR = '1414079646256857128'; // Admin
-    const ROLE_VANGUARD_LORD = '1520310648582443089';   // Official Middleman
-
-    // --- 4. DETERMINE THE USER CATEGORY TIER & COLORS ---
+    // --- 3. DETERMINE THE USER CATEGORY TIER & COLORS ---
     let titlePrefix = '📜 Imperial Registry';
-    let embedColor = '#2f3136'; // Standard elegant dark discord theme
+    let embedColor = '#1a1a1a'; // Default dark theme
     let staffBadgeValue = null;
-    let isManagement = false;
+    let mmStatus = '❌ Unauthorized (Requires 100 Vouches)';
+
+    // Define staff role IDs based on your mmstatus.js settings
+    const ROLES = {
+      VANGUARD_LORD: '1520310648582443089',
+      IMMORTAL_LEGEND: '1520310652021899415',
+      LORD_COMMANDER: '1414079432741617724',
+      HIGH_CHANCELLOR: '1414079646256857128'
+    };
 
     if (targetUser.bot) {
       titlePrefix = '🤖 Autonomous Construct';
@@ -73,81 +77,70 @@ module.exports = {
       titlePrefix = '👑 Imperial Sovereign';
       embedColor = '#ff4757'; // Premium Crimson Red
       staffBadgeValue = '🔱 **Server Founder & Absolute Authority**';
-      isManagement = true;
-    } else if (targetMember && targetMember.roles.cache.has(ROLE_HIGH_CHANCELLOR)) {
-      titlePrefix = '🏦 High Chancellor';
+      mmStatus = '⚡ Certified Senior Management (Highly Trusted)';
+    } else if (targetMember && targetMember.roles.cache.has(ROLES.HIGH_CHANCELLOR)) {
+      titlePrefix = '🏛️ High Chancellor';
       embedColor = '#eccc68'; // Imperial Gold
       staffBadgeValue = '🌟 **Server Administrator (High Council Execution)**';
-      isManagement = true;
-    } else if (targetMember && targetMember.roles.cache.has(ROLE_LORD_COMMANDER)) {
-      titlePrefix = '🛡️ Lord Commander';
-      embedColor = '#2ed573'; // Emerald Enforcer Green
-      staffBadgeValue = '⚔️ **Server Moderator (Vanguard Order Overseer)**';
-      isManagement = true;
+      mmStatus = '⚡ Certified Senior Management (Highly Trusted)';
+    } else if (targetMember && targetMember.roles.cache.has(ROLES.LORD_COMMANDER)) {
+      titlePrefix = '⚔️ Lord Commander';
+      embedColor = '#2ed573'; // Emerald Enforcement Green
+      staffBadgeValue = '🛡️ **Server Moderator (Enforcer & Order Overseer)**';
+      mmStatus = '⚡ Certified Senior Management (Highly Trusted)';
+    } else if (targetMember && targetMember.roles.cache.has(ROLES.VANGUARD_LORD)) {
+      titlePrefix = '🔱 Vanguard Lord';
+      embedColor = '#a04be0'; 
+      mmStatus = '✅ Verified Authorized Imperial Middleman';
+    } else if (targetMember && targetMember.roles.cache.has(ROLES.IMMORTAL_LEGEND)) {
+      titlePrefix = '👑 Immortal Legend';
+      embedColor = '#ffb6c1';
     }
 
-    // --- 5. SOCIAL REPUTATION SYSTEM MILESTONE MILESTONES ---
-    let rank = '📜 Sworn Citizen';
-    let nextMilestone = '🛡️ Vanguard Squire (10)';
+    // --- 4. STANDARD SOCIAL REPUTATION SYSTEM RANK CALCULATOR ---
+    let rank = '🪵 Sworn Citizen (Not a Middleman)';
+    let nextMilestone = '🔷 Vanguard Squire (10)';
     let progressString = '`[ 0 / 10 ]`';
 
-    if (isManagement) {
+    if (staffBadgeValue) {
       rank = '👑 Absolute Immunity / Server Management';
     } else {
-      if (totalVouches >= 0 && totalVouches < 10) {
-        rank = '📜 Sworn Citizen (Not a Middleman)';
-        nextMilestone = '🛡️ Vanguard Squire (10)';
-        progressString = `\`[ ${totalVouches} / 10 ]\``;
-      } else if (totalVouches >= 10 && totalVouches < 25) {
-        rank = '🛡️ Vanguard Squire';
-        nextMilestone = '🦅 High Banneret (25)';
+      if (totalVouches >= 10 && totalVouches < 25) {
+        rank = '🔷 Vanguard Squire';
+        nextMilestone = '⚔️ Knight Imperial (25)';
         progressString = `\`[ ${totalVouches} / 25 ]\``;
       } else if (totalVouches >= 25 && totalVouches < 50) {
-        rank = '🦅 High Banneret';
-        nextMilestone = '🛡️ Sovereign Guard (50)';
+        rank = '⚔️ Knight Imperial';
+        nextMilestone = '🛡️ High Paladin (50)';
         progressString = `\`[ ${totalVouches} / 50 ]\``;
-      } else if (totalVouches >= 50 && totalVouches < 75) {
-        rank = '🛡️ Sovereign Guard';
-        nextMilestone = '⚔️ Grand Paladin (75)';
-        progressString = `\`[ ${totalVouches} / 75 ]\``;
-      } else if (totalVouches >= 75 && totalVouches < 100) {
-        rank = '⚔️ Grand Paladin';
+      } else if (totalVouches >= 50 && totalVouches < 100) {
+        rank = '🛡️ High Paladin';
         nextMilestone = '🔱 Vanguard Lord (100)';
         progressString = `\`[ ${totalVouches} / 100 ]\``;
-      } else if (totalVouches >= 100 && totalVouches < 150) {
+      } else if (totalVouches >= 100) {
         rank = '🔱 Vanguard Lord';
-        nextMilestone = '👑 Immortal Legend (150)';
-        progressString = `\`[ ${totalVouches} / 150 ]\``;
-      } else if (totalVouches >= 150) {
-        rank = '👑 Immortal Legend';
-        nextMilestone = '🏆 Maximum Imperial Standing Achieved';
-        progressString = `\`[ ${totalVouches} / 150+ ]\``;
+        nextMilestone = '👑 Max Level Attained';
+        progressString = `\`[ ${totalVouches} / 100+ ]\``;
+        if (mmStatus.startsWith('❌')) {
+          mmStatus = '✅ Verified Authorized Imperial Middleman';
+        }
+      } else {
+        progressString = `\`[ ${totalVouches} / 10 ]\``;
       }
     }
 
-    // --- 6. HIGHLY TRUSTED MIDDLEMAN CHECK OVERRIDES ---
-    let mmStatus = '❌ Unauthorized (Not a Middleman / Requires 100 Vouches)';
-    
-    if (isManagement) {
-      mmStatus = '⚡ **Certified Senior Management (Highly Trusted)**';
-    } else if (targetMember && targetMember.roles.cache.has(ROLE_VANGUARD_LORD)) {
-      mmStatus = '✅ **Verified Authorized Imperial Middleman**';
-    } else if (totalVouches >= 100) {
-      mmStatus = '✅ **Verified Authorized Imperial Middleman**';
-    }
-
-    // --- 7. RICH VISUAL GRAPH EMBED COMPILATION ---
+    // --- 5. RICH VISUAL GRAPH EMBED COMPILATION ---
     const profileEmbed = new EmbedBuilder()
       .setColor(embedColor)
       .setTitle(`${titlePrefix}: ${targetUser.username}`)
       .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
       .addFields(
-        { name: '✨ Current Rank', value: rank, inline: true },
+        { name: '✨ Current Rank', value: rank, inline: false },
         { name: '🏆 Total Vouches', value: `\`${totalVouches}\` vouches`, inline: true },
         { name: '⚠️ Scam Records', value: `🛑 \`${verifiedScams}\` Verified Scams`, inline: true }
       );
 
-    // Dynamic Insertion: If they are management/bot, output their authority badge field instead of standard bars
+    // Dynamic Insertion: Handle specialized layout metrics
     if (staffBadgeValue) {
       profileEmbed.addFields({ name: '🎗️ Authority Status Badge', value: staffBadgeValue, inline: false });
     } else {
@@ -157,10 +150,9 @@ module.exports = {
       );
     }
 
-    // Append middleman designation
     profileEmbed.addFields({ name: '💼 Middleman Status', value: mmStatus, inline: false }).setTimestamp();
 
-    // --- 8. SECURE NETWORK PIPELINE ROUTING WRAPPER ---
+    // --- 6. SECURE NETWORK PIPELINE ROUTING WRAPPER ---
     try {
       if (!interaction.replied && !interaction.deferred) {
         return await interaction.reply({ embeds: [profileEmbed] });
