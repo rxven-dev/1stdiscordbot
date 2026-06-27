@@ -143,14 +143,9 @@ client.once('ready', async () => {
               { name: '🔴 Away / Offline', value: 'away' }
             ))
         .toJSON(),
-      new SlashCommandBuilder()
-        .setName('tax')
-        .setDescription('Calculate the standard 5% Imperial transaction fee and layout splits')
-        .addIntegerOption(option => 
-          option.setName('amount')
-            .setDescription('Total item or currency exchange valuation amount')
-            .setRequired(true))
-        .toJSON()
+        
+      // 🎯 Dynamic routing cleanly pulls currency option selections from tax.js data schema
+      taxModule && taxModule.data ? taxModule.data.toJSON() : null
     ].filter(cmd => cmd !== null);
 
     await rest.put(
