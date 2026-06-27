@@ -76,6 +76,19 @@ runModule('./reaction-roles.js', 'Unified-Reaction-Roles');
 client.once('ready', async () => {
   console.log(`✅ Logged in successfully as ${client.user.tag}`);
   
+  // 🧹 EMERGENCY CLOUD DATABASE RESET SWITCH
+  try {
+    const fs = require('fs');
+    const path = require('path');
+    const scamFilePath = path.join(__dirname, '../scam_records.json');
+    
+    // Explicitly write an empty JSON object to the active environment's record file
+    fs.writeFileSync(scamFilePath, JSON.stringify({}, null, 2));
+    console.log('🧼 CLOUD DATA PURGE COMPLETE: scam_records.json has been force-cleared.');
+  } catch (err) {
+    console.error('❌ Failed to force clear cloud file:', err.message);
+  }
+
   console.log('⚡ Initializing background text/reaction structures...');
   activeModules.forEach(mod => {
     try {
@@ -173,11 +186,7 @@ client.on('interactionCreate', async (interaction) => {
 
     if (commandName === 'profile') {
       try {
-        if (profileCommand) {
-          // Fallback checking to support either function mapping seamlessly
-          const executeProfileFunc = profileCommand.executeProfile || profileCommand.execute;
-          await executeProfileFunc(interaction);
-        }
+        if (profileCommand) await profileCommand.execute(interaction);
       } catch (e) {
         console.error('❌ Profile Command Error:', e);
       }
@@ -199,12 +208,8 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (commandName === 'scam') {
-      try {
-        if (scamModule) {
-          const executeScamFunc = scamModule.executeScam || scamModule.execute;
-          await executeScamFunc(interaction);
-        }
-      } catch (e) { console.error('❌ Scam Command Error:', e); }
+      try { await scamModule.executeScam(interaction); } 
+      catch (e) { console.error('❌ Scam Command Error:', e); }
       return;
     }
 
@@ -250,7 +255,6 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
-    // Fixed to listen for any scam button action (guilty OR innocent)
     if (customId.startsWith('scam_')) {
       try { await scamModule.handleScamButton(interaction); } catch (e) { console.error(e); }
       return;
