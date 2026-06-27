@@ -1,4 +1,4 @@
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
@@ -7,12 +7,19 @@ const scamFilePath = path.join(__dirname, '../scam_records.json');
 const vouchFilePath = path.join(__dirname, '../vouches.json');
 
 module.exports = {
+  // 📜 THIS IS THE CHUNKY DATA BLOCK INDEX.JS WAS MISSING:
+  data: new SlashCommandBuilder()
+    .setName('profile')
+    .setDescription('View an Imperial Registry user profile background summary card')
+    .addUserOption(option => 
+      option.setName('user')
+        .setDescription('Select a member to view their credentials')
+        .setRequired(false)),
+
   async executeProfile(interaction) {
     const targetUser = interaction.options.getUser('user') || interaction.user;
 
     // --- 1. DYNAMIC DATA ACQUISITION METRICS ---
-    
-    // Fetch live scam conviction database array
     let verifiedScams = 0;
     if (fs.existsSync(scamFilePath)) {
       try {
@@ -25,7 +32,6 @@ module.exports = {
       }
     }
 
-    // Fetch live vouch registration database array
     let totalVouches = 0;
     if (fs.existsSync(vouchFilePath)) {
       try {
@@ -56,11 +62,9 @@ module.exports = {
       nextMilestone = '👑 Max Level Attained';
       progressString = `\`[ ${totalVouches} / 50+ ]\``;
     } else {
-      // Default fallback display math layout
       progressString = `\`[ ${totalVouches} / 10 ]\``;
     }
 
-    // Determine authorization credentials for Middleman role tier
     const mmStatus = totalVouches >= 100 
       ? '✅ Verified Authorized Imperial Middleman' 
       : '❌ Unauthorized (Requires 100 Vouches)';
@@ -94,5 +98,10 @@ module.exports = {
         console.log('🛡️ Prevented a race condition on interaction profile callback token.');
       }
     }
+  },
+
+  // Fallback map so the old .execute() calls inside index.js don't cause breakage
+  async execute(interaction) {
+    return await this.executeProfile(interaction);
   }
 };

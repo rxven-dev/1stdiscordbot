@@ -71,6 +71,7 @@ runModule('./react.js', 'Reaction-System');
 runModule('./reaction-ping.js', 'Reaction-Ping-System');
 runModule('./seed.js', 'Seed-Notification-System');
 runModule('./reaction-roles.js', 'Unified-Reaction-Roles');
+run
 
 // --- CLIENT READY HANDLER ---
 client.once('ready', async () => {
