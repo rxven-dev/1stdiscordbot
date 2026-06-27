@@ -2,7 +2,7 @@ const fs = require('fs');
 const { EmbedBuilder } = require('discord.js');
 const path = require('path');
 
-const dataDir = process.env.RAILWAY_ENVIRONMENT ? '/data' : process.cwd();
+const dataDir = fs.existsSync('/data') ? '/data' : process.cwd();
 const VOUCH_FILE = path.join(dataDir, 'vouches.json');
 
 if (!fs.existsSync(dataDir) && process.env.RAILWAY_ENVIRONMENT) {
