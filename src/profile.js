@@ -2,10 +2,9 @@ const { EmbedBuilder, SlashCommandBuilder, PermissionFlagsBits } = require('disc
 const fs = require('fs');
 const path = require('path');
 
-// Safe shared production database routing
-const dataDir = process.env.RAILWAY_ENVIRONMENT ? '/data' : process.cwd();
+// Force exact physical root-level matching
+const dataDir = fs.existsSync('/data') ? '/data' : process.cwd();
 
-// Define ALL file paths your profile card needs
 const vouchFilePath = path.join(dataDir, 'vouches.json');
 const scamFilePath = path.join(dataDir, 'scam_records.json');
 const dutyFilePath = path.join(dataDir, 'mm_duty_status.json');
