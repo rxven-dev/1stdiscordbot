@@ -173,7 +173,11 @@ client.on('interactionCreate', async (interaction) => {
 
     if (commandName === 'profile') {
       try {
-        if (profileCommand) await profileCommand.execute(interaction);
+        if (profileCommand) {
+          // Fallback checking to support either function mapping seamlessly
+          const executeProfileFunc = profileCommand.executeProfile || profileCommand.execute;
+          await executeProfileFunc(interaction);
+        }
       } catch (e) {
         console.error('❌ Profile Command Error:', e);
       }
@@ -195,8 +199,12 @@ client.on('interactionCreate', async (interaction) => {
     }
 
     if (commandName === 'scam') {
-      try { await scamModule.executeScam(interaction); } 
-      catch (e) { console.error('❌ Scam Command Error:', e); }
+      try {
+        if (scamModule) {
+          const executeScamFunc = scamModule.executeScam || scamModule.execute;
+          await executeScamFunc(interaction);
+        }
+      } catch (e) { console.error('❌ Scam Command Error:', e); }
       return;
     }
 
@@ -242,7 +250,8 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
-    if (customId.startsWith('scam_guilty_')) {
+    // Fixed to listen for any scam button action (guilty OR innocent)
+    if (customId.startsWith('scam_')) {
       try { await scamModule.handleScamButton(interaction); } catch (e) { console.error(e); }
       return;
     }
