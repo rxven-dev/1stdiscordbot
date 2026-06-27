@@ -144,7 +144,6 @@ client.once('ready', async () => {
             ))
         .toJSON(),
         
-      // 🎯 Dynamic routing cleanly pulls currency option selections from tax.js data schema
       taxModule && taxModule.data ? taxModule.data.toJSON() : null
     ].filter(cmd => cmd !== null);
 
@@ -162,40 +161,32 @@ client.once('ready', async () => {
 // --- CENTRAL GATEWAY HUB ---
 client.on('interactionCreate', async (interaction) => {
   
-  // 📥 ROUTE 1: CHAT SLASH COMMAND TRAFFIC (HARD PRIORITIZED)
   if (interaction.isChatInputCommand()) {
     const { commandName } = interaction;
 
     if (commandName === 'profile') {
-      try {
-        if (profileCommand) await profileCommand.execute(interaction);
-      } catch (e) {
-        console.error('❌ Profile Command Error:', e);
-      }
-      return; // 🎯 CUTOFF IMMEDIATELY
+      try { if (profileCommand) await profileCommand.execute(interaction); } catch (e) { console.error(e); }
+      return;
     }
 
     if (commandName === 'vouch') {
       try {
         if (vouchModule.executeVouch) { await vouchModule.executeVouch(interaction); } 
         else if (typeof vouchModule === 'function') { await vouchModule(interaction); }
-      } catch (e) { console.error('❌ Vouch Command Error:', e); }
+      } catch (e) { console.error(e); }
       return;
     }
 
     if (commandName === 'rep') {
-      try { if (vouchModule.executeRep) await vouchModule.executeRep(interaction); } 
-      catch (e) { console.error('❌ Rep Command Error:', e); }
+      try { if (vouchModule.executeRep) await vouchModule.executeRep(interaction); } catch (e) { console.error(e); }
       return;
     }
 
     if (commandName === 'scam') {
-      try { await scamModule.executeScam(interaction); } 
-      catch (e) { console.error('❌ Scam Command Error:', e); }
+      try { await scamModule.executeScam(interaction); } catch (e) { console.error(e); }
       return;
     }
 
-    // ⚔️ FIXED: Strict handler check executes exactly once to prevent 40060 Acknowledged errors!
     if (commandName === 'tax') {
       try {
         if (taxModule && taxModule.execute) {
@@ -211,7 +202,7 @@ client.on('interactionCreate', async (interaction) => {
       try {
         if (monitorModule.execute) { await monitorModule.execute(interaction); } 
         else if (typeof monitorModule === 'function') { await monitorModule(interaction); }
-      } catch (e) { console.error('❌ Checkvouches Command Error:', e); }
+      } catch (e) { console.error(e); }
       return;
     }
 
@@ -219,7 +210,7 @@ client.on('interactionCreate', async (interaction) => {
       try {
         if (mmStatusModule.execute) { await mmStatusModule.execute(interaction); } 
         else if (typeof mmStatusModule === 'function') { await mmStatusModule(interaction); }
-      } catch (e) { console.error('❌ Mmstatus Command Error:', e); }
+      } catch (e) { console.error(e); }
       return;
     }
 
@@ -227,16 +218,16 @@ client.on('interactionCreate', async (interaction) => {
       try {
         if (ticketSystemModule.executeCommand) { await ticketSystemModule.executeCommand(interaction); } 
         else if (typeof ticketSystemModule === 'function') { await ticketSystemModule(interaction); }
-      } catch (e) { console.error('❌ Ticketpanel Command Error:', e); }
+      } catch (e) { console.error(e); }
       return;
     }
   }
 
-  // 🔘 ROUTE 2: BUTTON CLICKS MATRIX
   if (interaction.isButton()) {
     const { customId } = interaction;
 
-    if (customId === 'open_mm_ticket' || customId === 'close_mm_ticket') {
+    // 🤝 Centralized custom ID listeners route button events smoothly
+    if (customId === 'open_mm_ticket' || customId === 'open_mm_paid' || customId === 'open_mm_free' || customId === 'close_mm_ticket') {
       try { if (ticketSystemModule.handleButton) await ticketSystemModule.handleButton(interaction); } catch (e) { console.error(e); }
       return;
     }
@@ -273,7 +264,6 @@ client.on('interactionCreate', async (interaction) => {
     }
   }
 
-  // 📝 ROUTE 3: HANDLE MODAL SUBMISSIONS
   if (interaction.isModalSubmit()) {
     if (interaction.customId === 'scam_report_modal') {
       try { await scamModule.handleScamModal(interaction); } catch (e) { console.error(e); }
