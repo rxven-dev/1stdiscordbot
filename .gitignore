@@ -1,2 +1,4 @@
-node_modules
-.env
+node_modules/
+vouches.json
+scam_records.json
+mm_duty_status.json

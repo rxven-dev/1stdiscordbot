@@ -3,9 +3,12 @@ const fs = require('fs');
 const path = require('path');
 
 // Target the shared permanent volume folder explicitly
-const dataDir = fs.existsSync('/data') ? '/data' : process.cwd();
-const scamFilePath = path.join(dataDir, 'scam_records.json');
-const vouchFilePath = path.join(dataDir, 'vouches.json');
+const dataDir = process.env.RAILWAY_ENVIRONMENT ? '/data' : process.cwd();
+const VOUCH_FILE = path.join(dataDir, 'vouches.json');
+
+if (!fs.existsSync(dataDir) && process.env.RAILWAY_ENVIRONMENT) {
+    fs.mkdirSync(dataDir, { recursive: true });
+}
 
 module.exports = {
   data: new SlashCommandBuilder()
