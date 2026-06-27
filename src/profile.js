@@ -2,7 +2,7 @@ const { EmbedBuilder, SlashCommandBuilder, PermissionFlagsBits } = require('disc
 const fs = require('fs');
 const path = require('path');
 
-// Safe dynamic relative links to your main root database files
+// Target the shared permanent volume folder explicitly
 const dataDir = fs.existsSync('/data') ? '/data' : process.cwd();
 const scamFilePath = path.join(dataDir, 'scam_records.json');
 const vouchFilePath = path.join(dataDir, 'vouches.json');
