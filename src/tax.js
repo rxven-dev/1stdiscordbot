@@ -1,13 +1,13 @@
 const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
-  // ⚔️ Data builder configures the multi-currency interface options for Discord
+  // 🎯 CHANGED: Upgraded to NumberOption to support decimals like 8.15 natively!
   data: new SlashCommandBuilder()
     .setName('tax')
     .setDescription('Calculate standard 5% Imperial fee with automatic live PHP exchange conversions')
-    .addIntegerOption(option => 
+    .addNumberOption(option => 
       option.setName('amount')
-        .setDescription('Total transaction valuation amount')
+        .setDescription('Total transaction valuation amount (decimals supported)')
         .setRequired(true))
     .addStringOption(option =>
       option.setName('currency')
@@ -29,26 +29,25 @@ module.exports = {
       return interaction.reply({ content: `❌ Please use this command in <#${CHANNEL_ID}>.`, ephemeral: true });
     }
 
-    // Acknowledge interaction to buy network execution time before external fetch
     await interaction.deferReply();
 
-    const initialAmount = interaction.options.getInteger('amount');
+    // 🎯 CHANGED: Swapped to getNumber to capture the full precision value
+    const initialAmount = interaction.options.getNumber('amount');
     const currencyType = interaction.options.getString('currency');
 
-    const handlingFee = Math.round(initialAmount * 0.05);
-    const totalToPay = initialAmount + handlingFee;
+    // Math is kept clean using two decimal places for fiat accuracy
+    const handlingFee = Math.round((initialAmount * 0.05) * 100) / 100;
+    const totalToPay = Math.round((initialAmount + handlingFee) * 100) / 100;
 
-    // Currency prefix symbol mapping index
     const symbols = { PHP: '₱', USD: '$', EUR: '€', GBP: '£', CAD: 'C$', AUD: 'A$' };
     const symbol = symbols[currencyType] || '₱';
 
     const embedFields = [
-      { name: '💰 Trade Worth', value: `\`${symbol}${initialAmount.toLocaleString()}\` ${currencyType}`, inline: false },
-      { name: '🛡️ Middleman Fee (5%)', value: `\`${symbol}${handlingFee.toLocaleString()}\` ${currencyType}`, inline: true },
-      { name: '💳 Total you need to pay', value: `\`${symbol}${totalToPay.toLocaleString()}\` ${currencyType}`, inline: true }
+      { name: '💰 Trade Worth', value: `\`${symbol}${initialAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\` ${currencyType}`, inline: false },
+      { name: '🛡️ Middleman Fee (5%)', value: `\`${symbol}${handlingFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\` ${currencyType}`, inline: true },
+      { name: '💳 Total you need to pay', value: `\`${symbol}${totalToPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\` ${currencyType}`, inline: true }
     ];
 
-    // 🌐 LIVE API INTERATIONAL EXCHANGES PIPELINE
     if (currencyType !== 'PHP') {
       const apiKey = process.env.EXCHANGE_RATE_API_KEY;
       if (apiKey) {
