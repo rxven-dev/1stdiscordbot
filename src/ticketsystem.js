@@ -20,10 +20,10 @@ module.exports = {
       .setColor('#a04be0')
       .setDescription(
         'Need a trusted safe transaction? Select your preferred service tier below to open a secure room. ' +
-        'Only official trusted **Vanguard Lords (100+ Vouches)** will be summoned to assist you.\\n\\n' +
-        '💎 **PAID SERVICE TIER (5% Fee)**\\n' +
-        'Our staff team handles your transaction with maximum speed priority.\\n\\n' +
-        '💝 **DONATION TIER (Pay Any Amount)**\\n' +
+        'Only official trusted **Vanguard Lords (100+ Vouches)** will be summoned to assist you.\n\n' +
+        '💎 **PAID SERVICE TIER (5% Fee)**\n' +
+        'Our staff team handles your transaction with maximum speed priority.\n\n' +
+        '💝 **DONATION TIER (Pay Any Amount)**\n' +
         'Available for all members. Middleman processing speeds depend on queue workload volume.'
       )
       .setFooter({ text: 'Imperial Security Matrix System Protocols' });
@@ -124,7 +124,6 @@ module.exports = {
 
       await interaction.deferUpdate();
 
-      const userField = interaction.message.embeds[0].description.split('Welcome ')[1].split('.')[0];
       const finishedRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId(`complete_mm_${interaction.user.id}`).setLabel('Complete Trade').setEmoji('🔒').setStyle(ButtonStyle.Primary),
         new ButtonBuilder().setCustomId('close_mm_ticket').setLabel('Close Ticket').setStyle(ButtonStyle.Danger)
@@ -177,16 +176,16 @@ module.exports = {
         return interaction.reply({ content: '❌ Security Exception: Operators cannot vouch for their own matrix files.', ephemeral: true });
       }
 
-      // Read database from the correct location
+      // Read database dynamically from the absolute storage path right when clicked
       let db = fs.existsSync(VOUCH_FILE) ? JSON.parse(fs.readFileSync(VOUCH_FILE, 'utf8')) : {};
 
-      // Increment value on the production object
+      // Increment value on the production database object
       db[middlemanId] = (db[middlemanId] || 0) + 1;
 
-      // CRITICAL DATA COUPLING SYSTEM ROUTE: Write update to disk immediately
+      // CRITICAL DIRECT SYSTEM FLUSH: Write update back to the exact volume path immediately
       fs.writeFileSync(VOUCH_FILE, JSON.stringify(db, null, 2), 'utf8');
 
-      // Reply using the true real-time synchronized value
+      // Reply using the absolute accurate live file total 
       return await interaction.reply({
         content: `✅ **Vouch Recorded!** Added 1 vouch point to <@${middlemanId}>'s standing records matrix. (Total: **${db[middlemanId]}**)`
       });

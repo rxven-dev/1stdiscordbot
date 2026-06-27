@@ -2,18 +2,19 @@ const { EmbedBuilder, SlashCommandBuilder, PermissionFlagsBits } = require('disc
 const fs = require('fs');
 const path = require('path');
 
-// Force exact physical root-level matching
+// Force exact physical root-level absolute layout volume matching
 const dataDir = fs.existsSync('/data') ? '/data' : process.cwd();
 
 const vouchFilePath = path.join(dataDir, 'vouches.json');
 const scamFilePath = path.join(dataDir, 'scam_records.json');
 const dutyFilePath = path.join(dataDir, 'mm_duty_status.json');
 
-// Ensure the data directory exists
+// Ensure the data directory structure exists cleanly in isolation
 if (!fs.existsSync(dataDir) && process.env.RAILWAY_ENVIRONMENT) {
     fs.mkdirSync(dataDir, { recursive: true });
 }
-// Safeguard all files from missing errors
+
+// Safeguard all physical file links from missing database parse errors
 if (!fs.existsSync(vouchFilePath)) fs.writeFileSync(vouchFilePath, JSON.stringify({}), 'utf8');
 if (!fs.existsSync(scamFilePath)) fs.writeFileSync(scamFilePath, JSON.stringify({}), 'utf8');
 if (!fs.existsSync(dutyFilePath)) fs.writeFileSync(dutyFilePath, JSON.stringify({}), 'utf8');
@@ -28,123 +29,88 @@ module.exports = {
         .setRequired(false)),
 
   async executeProfile(interaction) {
-    // 1. Fetch the Target User Object and their Guild Member Object safely
     const targetUser = interaction.options.getUser('user') || interaction.user;
-    let targetMember = null;
+    const userId = targetUser.id;
+
+    // Direct Synchronized Live Pool Extraction
+    let vouchData = {};
+    let scamData = {};
+    let dutyData = {};
+
     try {
-      targetMember = await interaction.guild.members.fetch(targetUser.id);
-    } catch (e) {
-      // Fallback if user is no longer in the server
+      vouchData = JSON.parse(fs.readFileSync(vouchFilePath, 'utf8'));
+      scamData = JSON.parse(fs.readFileSync(scamFilePath, 'utf8'));
+      dutyData = JSON.parse(fs.readFileSync(dutyFilePath, 'utf8'));
+    } catch (parseErr) {
+      console.error('Error fetching internal file links matrix:', parseErr);
     }
 
-    // --- 2. DYNAMIC DATA ACQUISITION METRICS ---
-    let verifiedScams = 0;
-    if (fs.existsSync(scamFilePath)) {
-      try {
-        const scamData = JSON.parse(fs.readFileSync(scamFilePath, 'utf8'));
-        if (scamData[targetUser.id] && scamData[targetUser.id].convictions !== undefined) {
-          verifiedScams = Number(scamData[targetUser.id].convictions) || 0;
-        }
-      } catch (err) {
-        console.error('❌ Error reading scam metrics path:', err.message);
+    const totalVouches = vouchData[userId] || 0;
+    const verifiedScams = scamData[userId] || 0;
+    const rawDuty = dutyData[userId] || 'Offline';
+
+    // Staff identification block setups
+    const guildMember = await interaction.guild.members.fetch(userId).catch(() => null);
+    let staffBadgeValue = '';
+    
+    if (guildMember) {
+      if (guildMember.id === interaction.guild.ownerId) {
+        staffBadgeValue = '👑 **Founding Emperor**';
+      } else if (guildMember.roles.cache.has('1326445582310113292')) {
+        staffBadgeValue = '⚔️ **Imperial Guard Middleman**';
+      } else if (guildMember.permissions.has(PermissionFlagsBits.Administrator)) {
+        staffBadgeValue = '🛡️ **High Council Administrator**';
       }
     }
 
-    let totalVouches = 0;
-    if (fs.existsSync(vouchFilePath)) {
-      try {
-        const vouchData = JSON.parse(fs.readFileSync(vouchFilePath, 'utf8'));
-        if (vouchData[targetUser.id] !== undefined) {
-          // FIXED: Support both object format (.count) or flat integer format directly
-          if (typeof vouchData[targetUser.id] === 'object' && vouchData[targetUser.id].count !== undefined) {
-            totalVouches = Number(vouchData[targetUser.id].count) || 0;
-          } else {
-            totalVouches = Number(vouchData[targetUser.id]) || 0;
-          }
-        }
-      } catch (err) {
-        console.error('❌ Error reading vouch metrics path:', err.message);
-      }
+    // Rank Progression Matrix Logic
+    let rank = 'Neutral Civilian';
+    let nextMilestone = 'Initiate Merchant (10 Vouches)';
+    let requiredForNext = 10;
+    let baseForCurrent = 0;
+
+    if (totalVouches >= 100) {
+      rank = '💎 Vanguard Lord';
+      nextMilestone = '👑 Ultimate Mythic Monarch status accomplished!';
+      requiredForNext = totalVouches;
+      baseForCurrent = 100;
+    } else if (totalVouches >= 50) {
+      rank = '🔮 Master Spellweaver';
+      nextMilestone = '💎 Vanguard Lord (100 Vouches)';
+      requiredForNext = 100;
+      baseForCurrent = 50;
+    } else if (totalVouches >= 25) {
+      rank = '🎖️ Elite Commander';
+      nextMilestone = '🔮 Master Spellweaver (50 Vouches)';
+      requiredForNext = 50;
+      baseForCurrent = 25;
+    } else if (totalVouches >= 10) {
+      rank = '📜 Initiate Merchant';
+      nextMilestone = '🎖️ Elite Commander (25 Vouches)';
+      requiredForNext = 25;
+      baseForCurrent = 10;
     }
 
-    // --- 3. DETERMINE THE USER CATEGORY TIER & COLORS ---
-    let titlePrefix = '📜 Imperial Registry';
-    let embedColor = '#1a1a1a'; // Default dark theme
-    let staffBadgeValue = null;
-    let mmStatus = '❌ Unauthorized (Requires 100 Vouches)';
-
-    // Define staff role IDs based on your mmstatus.js settings
-    const ROLES = {
-      VANGUARD_LORD: '1520310648582443089',
-      IMMORTAL_LEGEND: '1520310652021899415',
-      LORD_COMMANDER: '1414079432741617724',
-      HIGH_CHANCELLOR: '1414079646256857128'
-    };
-
-    if (targetUser.bot) {
-      titlePrefix = '🤖 Autonomous Construct';
-      embedColor = '#00b0f4'; // Cyber Blue
-      staffBadgeValue = '⚡ Official Automated Imperial Service System';
-    } else if (targetUser.id === interaction.guild.ownerId) {
-      titlePrefix = '👑 Imperial Sovereign';
-      embedColor = '#ff4757'; // Premium Crimson Red
-      staffBadgeValue = '🔱 **Server Founder & Absolute Authority**';
-      mmStatus = '⚡ Certified Senior Management (Highly Trusted)';
-    } else if (targetMember && targetMember.roles.cache.has(ROLES.HIGH_CHANCELLOR)) {
-      titlePrefix = '🏛️ High Chancellor';
-      embedColor = '#eccc68'; // Imperial Gold
-      staffBadgeValue = '🌟 **Server Administrator (High Council Execution)**';
-      mmStatus = '⚡ Certified Senior Management (Highly Trusted)';
-    } else if (targetMember && targetMember.roles.cache.has(ROLES.LORD_COMMANDER)) {
-      titlePrefix = '⚔️ Lord Commander';
-      embedColor = '#2ed573'; // Emerald Enforcement Green
-      staffBadgeValue = '🛡️ **Server Moderator (Enforcer & Order Overseer)**';
-      mmStatus = '⚡ Certified Senior Management (Highly Trusted)';
-    } else if (targetMember && targetMember.roles.cache.has(ROLES.VANGUARD_LORD)) {
-      titlePrefix = '🔱 Vanguard Lord';
-      embedColor = '#a04be0'; 
-      mmStatus = '✅ Verified Authorized Imperial Middleman';
-    } else if (targetMember && targetMember.roles.cache.has(ROLES.IMMORTAL_LEGEND)) {
-      titlePrefix = '👑 Immortal Legend';
-      embedColor = '#ffb6c1';
+    // Progress Bar Calculator
+    let progressString = 'Fully Graduated 🏆';
+    if (totalVouches < 100) {
+      const neededRange = requiredForNext - baseForCurrent;
+      const currentProgress = totalVouches - baseForCurrent;
+      const percentage = Math.min(Math.max(currentProgress / neededRange, 0), 1);
+      const filledBlocks = Math.round(percentage * 10);
+      const emptyBlocks = 10 - filledBlocks;
+      progressString = '🟩'.repeat(filledBlocks) + '⬛'.repeat(emptyBlocks) + ` (${totalVouches}/${requiredForNext})`;
     }
 
-    // --- 4. STANDARD SOCIAL REPUTATION SYSTEM RANK CALCULATOR ---
-    let rank = '🪵 Sworn Citizen (Not a Middleman)';
-    let nextMilestone = '🔷 Vanguard Squire (10)';
-    let progressString = '`[ 0 / 10 ]`';
-
-    if (staffBadgeValue) {
-      rank = '👑 Absolute Immunity / Server Management';
-    } else {
-      if (totalVouches >= 10 && totalVouches < 25) {
-        rank = '🔷 Vanguard Squire';
-        nextMilestone = '⚔️ Knight Imperial (25)';
-        progressString = `\`[ ${totalVouches} / 25 ]\``;
-      } else if (totalVouches >= 25 && totalVouches < 50) {
-        rank = '⚔️ Knight Imperial';
-        nextMilestone = '🛡️ High Paladin (50)';
-        progressString = `\`[ ${totalVouches} / 50 ]\``;
-      } else if (totalVouches >= 50 && totalVouches < 100) {
-        rank = '🛡️ High Paladin';
-        nextMilestone = '🔱 Vanguard Lord (100)';
-        progressString = `\`[ ${totalVouches} / 100 ]\``;
-      } else if (totalVouches >= 100) {
-        rank = '🔱 Vanguard Lord';
-        nextMilestone = '👑 Max Level Attained';
-        progressString = `\`[ ${totalVouches} / 100+ ]\``;
-        if (mmStatus.startsWith('❌')) {
-          mmStatus = '✅ Verified Authorized Imperial Middleman';
-        }
-      } else {
-        progressString = `\`[ ${totalVouches} / 10 ]\``;
-      }
+    // Duty Metric Output formatting
+    let mmStatus = '❌ Unverified Citizen';
+    if (guildMember && guildMember.roles.cache.has('1326445582310113292')) {
+      mmStatus = rawDuty === 'Active' ? '🟢 Active & Accepting Trades' : '🔴 On Break / Unavailable';
     }
 
-    // --- 5. RICH VISUAL GRAPH EMBED COMPILATION ---
     const profileEmbed = new EmbedBuilder()
-      .setColor(embedColor)
-      .setTitle(`${titlePrefix}: ${targetUser.username}`)
+      .setTitle(`🏰 Imperial Archive Registry: ${targetUser.username}`)
+      .setColor('#a04be0')
       .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }))
       .addFields(
         { name: '✨ Current Rank', value: rank, inline: false },
@@ -152,7 +118,6 @@ module.exports = {
         { name: '⚠️ Scam Records', value: `🛑 \`${verifiedScams}\` Verified Scams`, inline: true }
       );
 
-    // Dynamic Insertion: Handle specialized layout metrics
     if (staffBadgeValue) {
       profileEmbed.addFields({ name: '🎗️ Authority Status Badge', value: staffBadgeValue, inline: false });
     } else {
@@ -164,7 +129,6 @@ module.exports = {
 
     profileEmbed.addFields({ name: '💼 Middleman Status', value: mmStatus, inline: false }).setTimestamp();
 
-    // --- 6. SECURE NETWORK PIPELINE ROUTING WRAPPER ---
     try {
       if (!interaction.replied && !interaction.deferred) {
         return await interaction.reply({ embeds: [profileEmbed] });
@@ -175,12 +139,8 @@ module.exports = {
       try {
         return await interaction.followUp({ embeds: [profileEmbed] });
       } catch (fError) {
-        console.log('🛡️ Prevented a race condition on interaction profile callback token.');
+        console.error('🛡️ Failed network logging pipeline resolution:', fError);
       }
     }
-  },
-
-  async execute(interaction) {
-    return await this.executeProfile(interaction);
   }
 };
