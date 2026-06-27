@@ -195,11 +195,13 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
+    // ⚔️ FIXED: Strict handler check executes exactly once to prevent 40060 Acknowledged errors!
     if (commandName === 'tax') {
       try {
-        if (taxModule.execute) { await taxModule.execute(interaction); } 
-        else if (typeof taxModule === 'function') { await taxModule(interaction); }
-      } catch (e) { console.error('❌ Tax Command Error:', e); }
+        if (taxModule && taxModule.execute) await taxModule.execute(interaction);
+      } catch (e) { 
+        console.error('❌ Tax Command Error:', e); 
+      }
       return;
     }
 
