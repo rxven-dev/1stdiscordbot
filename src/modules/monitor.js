@@ -2,7 +2,7 @@ const { EmbedBuilder, PermissionFlagsBits } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
-const VOUCH_FILE = path.join(__dirname, '../vouches.json');
+const VOUCH_FILE = path.join(__dirname, '../../vouches.json'); // 🟢 CORRECT: Steps back out to root directory!
 
 module.exports = {
   name: 'checkvouches',
