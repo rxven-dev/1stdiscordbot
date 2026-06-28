@@ -134,8 +134,8 @@ module.exports = {
           );
 
         const controlRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('claim_mm_ticket').setLabel('Claim Ticket').setEmoji('⚔️').setStyle(ButtonStyle.Success),
-          new ButtonBuilder().setCustomId('close_mm_ticket').setLabel('Close Ticket').setStyle(ButtonStyle.Danger)
+          new ButtonBuilder().setCustomId('claim_mm_ticket').setLabel('Claim').setEmoji('⚔️').setStyle(ButtonStyle.Success),
+          new ButtonBuilder().setCustomId('close_mm_ticket').setLabel('Close').setEmoji('🗑️').setStyle(ButtonStyle.Danger)
         );
 
         const alertPing = guild.roles.cache.has('1520310648582443089') ? `<@&1520310648582443089>` : `@Staff`;
@@ -148,7 +148,7 @@ module.exports = {
       }
     }
 
-    // --- 3. CLAIM SERVICE TICKETS (FIXED ROW AND INTERACTION REFS) ---
+    // --- 3. CLAIM SERVICE TICKETS ---
     if (interaction.customId === 'claim_mm_ticket') {
       if (!isStaffUser) {
         return interaction.reply({ content: '❌ Access Denied: Only authorized Imperial Staff and Middlemen can claim operations.', ephemeral: true });
@@ -156,10 +156,10 @@ module.exports = {
 
       await interaction.deferUpdate();
 
-      // 🟢 FIXED: Close button is explicitly present here alongside Complete Trade!
+      // 🟢 OPTIMIZED SHORT LABELS: Prevents button splitting onto 2 rows on mobile!
       const finishedRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`complete_mm_${interaction.user.id}`).setLabel('Complete Trade').setEmoji('🔒').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('close_mm_ticket').setLabel('Close Ticket').setEmoji('🛑').setStyle(ButtonStyle.Danger)
+        new ButtonBuilder().setCustomId(`complete_mm_${interaction.user.id}`).setLabel('Complete').setEmoji('🔒').setStyle(ButtonStyle.Primary),
+        new ButtonBuilder().setCustomId('close_mm_ticket').setLabel('Close').setEmoji('🗑️').setStyle(ButtonStyle.Danger)
       );
 
       const nameParts = interaction.channel.name.split('-');
@@ -171,12 +171,11 @@ module.exports = {
           deny: [PermissionFlagsBits.ViewChannel] 
         },
         { 
-          id: interaction.user.id, // The claiming Middleman gets view permissions
+          id: interaction.user.id, 
           allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] 
         }
       ];
 
-      // Explicitly block view permission access paths for other staff roles on room activation lock down
       STAFF_ROLES.forEach(roleId => {
         if (interaction.guild.roles.cache.has(roleId)) {
           updatedPermissions.push({ 
@@ -196,7 +195,6 @@ module.exports = {
       await interaction.channel.permissionOverwrites.set(updatedPermissions);
       await interaction.channel.setName(`⚔️┃active-${interaction.user.username}`);
       
-      // 🟢 FIXED: Changed faulty `message.edit` over to `interaction.message.edit`
       return await interaction.message.edit({ components: [finishedRow] }).catch(() => {});
     }
 
