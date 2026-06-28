@@ -20,7 +20,7 @@ module.exports = {
     const targetUser = interaction.options.getUser('user') || interaction.user;
     const userId = targetUser.id;
 
-    // Load active JSON files securely
+    // Load database files safely
     let vouchesData = {}; let scamsData = {}; let dutyData = { active: [], away: [] };
     try { vouchesData = JSON.parse(fs.readFileSync(vouchFilePath, 'utf8')); } catch (e) {}
     try { scamsData = JSON.parse(fs.readFileSync(scamFilePath, 'utf8')); } catch (e) {}
@@ -33,10 +33,11 @@ module.exports = {
     if (dutyData.active && dutyData.active.includes(userId)) rawDuty = 'Active';
     else if (dutyData.away && dutyData.away.includes(userId)) rawDuty = 'Away';
 
-    // Default configuration properties (Citizens)
+    // Default Configuration Parameters (Standard Citizens)
     let embedColor = '#a04be0'; // Royal Purple
     let cardTitlePrefix = '🏰 Imperial Archive Registry';
     let staffBadgeValue = '';
+    let statusQuote = '';
     let isBot = targetUser.bot;
 
     let rank = 'Sworn Citizen「 📜 」';
@@ -50,32 +51,31 @@ module.exports = {
       const userRoleNames = guildMember.roles.cache.map(r => r.name.toLowerCase());
 
       // ==========================================
-      // 🎨 DYNAMIC THEME DETERMINATION ENGINE
+      // 🎨 CUSTOM LEVEL ARCHITECTURE & DESIGN THEMES
       // ==========================================
       if (isBot) {
         embedColor = '#70777a'; // Slate Gray
         cardTitlePrefix = '🤖 Automated Cybernetic Unit';
-        staffBadgeValue = '⚙️ **Server Automaton / Bot**';
-      } else if (guildMember.id === interaction.guild.ownerId) {
-        embedColor = '#f1c40f'; // Golden Yellow
-        cardTitlePrefix = '👑 Sovereign Supreme Domain';
-        staffBadgeValue = '👑 **Founding Emperor**';
-      } else if (userRoleNames.some(name => name.includes('highness'))) {
-        embedColor = '#f39c12'; // Deep Amber Gold
-        cardTitlePrefix = '✨ Imperial Highness Throne';
-        staffBadgeValue = '👑 **Imperial Highness**';
+        staffBadgeValue = '⚙️ **Server Automaton / System Bot**';
+      } else if (guildMember.id === interaction.guild.ownerId || userRoleNames.some(name => name.includes('highness'))) {
+        embedColor = '#f1c40f'; // Bright Golden Yellow
+        cardTitlePrefix = '👑 Central Core Development Domain';
+        staffBadgeValue = '🛠️ **Server Founder & Lead Systems Developer**';
+        statusQuote = '⚡ *Absolute administrative access over server nodes & engine protocols.*';
       } else if (userRoleNames.some(name => name.includes('chancellor'))) {
         embedColor = '#e74c3c'; // Crimson Red
-        cardTitlePrefix = '🏦 High Chancellor Judiciary';
-        staffBadgeValue = '🏦 **High Chancellor** (Admin)';
+        cardTitlePrefix = '🚨 High Chancellor Judiciary';
+        staffBadgeValue = '🏦 **High Chancellor (Highly Trusted Administration)**';
+        statusQuote = '🔒 *Verified Senior Executive. Authorized to securely handle major structural services.*';
       } else if (userRoleNames.some(name => name.includes('commander'))) {
         embedColor = '#3498db'; // Knight Blue
         cardTitlePrefix = '🛡️ Lord Commander Outpost';
-        staffBadgeValue = '🛡️ **Lord Commander** (Moderator)';
+        staffBadgeValue = '⚔️ **Lord Commander (Official Server Moderator)**';
+        statusQuote = '✨ *Trusted Enforcer of Imperial peace, oversight, and safe middleman trades.*';
       }
 
       // ==========================================
-      // 📈 DYNAMIC MILESTONE EXTRACTOR
+      // 📈 DYNAMIC MILESTONE PROGRESSION TRACKER
       // ==========================================
       if (userRoleNames.some(name => name.includes('immortal legend'))) {
         rank = 'Immortal Legend 「 👑 」'; nextMilestone = '✨ Ultimate Mythic Monarch status accomplished!'; requiredForNext = totalVouches; baseForCurrent = 150;
@@ -94,7 +94,7 @@ module.exports = {
       }
     }
 
-    // Progress Bar Calculator
+    // Calculating progress bars
     let progressString = 'Fully Graduated 🏆';
     if (totalVouches < 150) {
       const neededRange = requiredForNext - baseForCurrent;
@@ -105,7 +105,7 @@ module.exports = {
       progressString = '🟩'.repeat(filledBlocks) + '⬛'.repeat(emptyBlocks) + ` (${totalVouches}/${requiredForNext})`;
     }
 
-    // Middleman Duty Checking
+    // Authorization Status Checkers
     let mmStatus = '❌ Unverified Citizen';
     const isStaff = guildMember && (
       guildMember.id === interaction.guild.ownerId ||
@@ -118,20 +118,18 @@ module.exports = {
       mmStatus = rawDuty === 'Active' ? '🟢 Active & Accepting Trades' : '🔴 On Break / Unavailable';
     }
 
-    // Constructing the stylized profile embed
+    // Creating the final custom embed object layout
     const profileEmbed = new EmbedBuilder()
       .setTitle(`${cardTitlePrefix}: ${targetUser.username}`)
       .setColor(embedColor)
       .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }));
 
-    // BOTS FIELD CONFIGURATION (Hide unnecessary ranks)
     if (isBot) {
       profileEmbed.addFields(
-        { name: '🎗️ System Core Designation', value: staffBadgeValue, inline: false },
-        { name: '⚙️ Operations Status', value: '🤖 Active Core Node (24/7 Uptime)', inline: false }
+        { name: '🎗️ System Designation', value: staffBadgeValue, inline: false },
+        { name: '⚙️ Operations Status', value: '🤖 Active Cybernetic Node (24/7 Monitoring)', inline: false }
       );
     } else {
-      // HUMANS FIELD CONFIGURATION
       profileEmbed.addFields(
         { name: '✨ Current Rank', value: rank, inline: false },
         { name: '🏆 Total Vouches', value: `\`${totalVouches}\` vouches`, inline: true },
@@ -142,6 +140,10 @@ module.exports = {
         profileEmbed.addFields({ name: '🎗️ Authority Status Badge', value: staffBadgeValue, inline: false });
       }
 
+      if (statusQuote) {
+        profileEmbed.setDescription(statusQuote);
+      }
+
       profileEmbed.addFields(
         { name: '🎯 Next Milestone', value: nextMilestone, inline: false },
         { name: '📊 Progress Bar', value: progressString, inline: false },
@@ -150,7 +152,6 @@ module.exports = {
     }
 
     profileEmbed.setTimestamp();
-
     await interaction.reply({ embeds: [profileEmbed] });
   }
 };
