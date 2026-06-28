@@ -10,6 +10,7 @@ module.exports = {
   async execute(interaction) {
     // 🏛️ AUTHORIZED REPUTATION & MANAGEMENT ROLES SELECTION MATRIX
     const ALLOWED_ROLES = [
+      '1421722522851868827', // Imperial Highness 「 👑 」
       '1520310648582443089', // Vanguard Lord 「 🔱 」
       '1520310652021899415', // Immortal Legend 「 👑 」
       '1414079432741617724', // Lord Commander 「 🛡️ 」(Moderator)
