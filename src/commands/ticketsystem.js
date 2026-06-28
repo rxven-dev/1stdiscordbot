@@ -23,145 +23,173 @@ module.exports = {
         'Only official trusted **Vanguard Lords (100+ Vouches)** will be summoned to assist you.\n\n' +
         '💎 **PAID SERVICE TIER (5% Fee)**\n' +
         'Our staff team handles your transaction with maximum speed priority.\n\n' +
-        '💝 **DONATION TIER (Pay Any Amount)**\n' +
-        'Available for all members. Middleman processing speeds depend on queue workload volume.'
+        '💝 **DONATION TIER (Free / Optional)**\n' +
+        'Free automated room allocation. Tips/donations to middlemen are highly appreciated!'
       )
-      .setFooter({ text: 'Imperial Security Matrix System Protocols' });
+      .setFooter({ text: 'Imperial Security Network Protocol', iconURL: interaction.guild.iconURL() });
 
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('open_paid_ticket').setLabel('Request Paid Service').setEmoji('💎').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('open_free_ticket').setLabel('Request Donation Service').setEmoji('💝').setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId('ticket_paid').setLabel('💎 Paid Service (5%)').setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId('ticket_free').setLabel('💝 Donation Tier').setStyle(ButtonStyle.Success)
     );
 
-    await interaction.reply({ content: '✅ Middleman panel deployed successfully.', ephemeral: true });
-    await interaction.channel.send({ embeds: [embed], components: [row] });
+    await interaction.reply({ content: 'Deploying service panel hub...', ephemeral: true });
+    return await interaction.channel.send({ embeds: [embed], components: [row] });
   },
 
   async handleInteraction(interaction) {
-    const OFFICIAL_MM_ROLE_ID = '1326445582310113292';
+    // --- 1. HANDLE MAIN INITIAL BUTTON CLICKS FROM USERS ---
+    if (interaction.customId === 'ticket_paid' || interaction.customId === 'ticket_free') {
+      await interaction.deferReply({ ephemeral: true });
 
-    // --- 1. HANDLE TIER MODAL CREATION POPUPS ---
-    if (interaction.customId === 'open_paid_ticket' || interaction.customId === 'open_free_ticket') {
-      const isPaid = interaction.customId === 'open_paid_ticket';
+      const ticketType = interaction.customId === 'ticket_paid' ? 'paid' : 'free';
+      const staffRoleId = '1520312604856029255';
+      
+      // Assemble core system permissions dynamically
+      const overwrites = [
+        {
+          id: interaction.guild.roles.everyone.id,
+          deny: [PermissionFlagsBits.ViewChannel]
+        },
+        {
+          id: interaction.user.id,
+          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory]
+        }
+      ];
+
+      // Failsafe validation for Staff Role
+      if (interaction.guild.roles.cache.has(staffRoleId)) {
+        overwrites.push({
+          id: staffRoleId,
+          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory]
+        });
+      } else {
+        console.warn(`⚠️ Ticket System Warn: Role ID ${staffRoleId} not found in guild cache.`);
+      }
+
+      try {
+        const ticketChannel = await interaction.guild.channels.create({
+          name: `🎫-${ticketType}-${interaction.user.username}`,
+          type: ChannelType.GuildText,
+          parent: '1520312527274115164',
+          permissionOverwrites: overwrites
+        });
+
+        const ticketEmbed = new EmbedBuilder()
+          .setColor('#a04be0')
+          .setTitle(`🏰 Imperial Support Room — ${ticketType.toUpperCase()}`)
+          .setDescription(`Greetings ${interaction.user}, welcome to your service room. Staff will be with you shortly.\n\nClick the button below once your deal is ready to call an available Middleman.`);
+
+        const row = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId(`call_mm_${ticketType}`).setLabel('🤝 Summon Middleman').setStyle(ButtonStyle.Primary)
+        );
+
+        await ticketChannel.send({ embeds: [ticketEmbed], components: [row] });
+        return await interaction.editReply({ content: `✅ Your ticket room has been initialized successfully: ${ticketChannel}` });
+      } catch (err) {
+        console.error('❌ Failed creating ticket channel:', err);
+        return await interaction.editReply({ content: `❌ System permission error. Please report this breakdown to administrators.` });
+      }
+    }
+
+    // --- 2. HANDLE MIDDLEMAN SUMMON BUTTONS ---
+    if (interaction.customId === 'call_mm_paid' || interaction.customId === 'call_mm_free') {
+      const isPaid = interaction.customId === 'call_mm_paid';
+      
       const modal = new ModalBuilder()
-        .setCustomId(isPaid ? 'modal_paid_ticket' : 'modal_free_ticket')
-        .setTitle(isPaid ? '💎 Priority Session Setup' : '💝 Donation Session Setup');
+        .setCustomId(isPaid ? 'modal_mm_paid' : 'modal_mm_free')
+        .setTitle('Imperial Transaction Registry');
 
-      const itemInput = new TextInputBuilder()
-        .setCustomId('tx_details')
-        .setLabel('📝 What is the transaction?')
-        .setPlaceholder('e.g., Trading Roblox Limited Adurite for $50 Crypto LTC')
+      const dealInput = new TextInputBuilder()
+        .setCustomId('deal_details')
+        .setLabel('WHAT ARE YOU TRADING?')
+        .setPlaceholder('Example: Selling Steam Account for $50 Crypto')
         .setStyle(TextInputStyle.Paragraph)
         .setRequired(true);
 
-      const amountInput = new TextInputBuilder()
-        .setCustomId('tx_amount')
-        .setLabel('💰 How much is the transaction?')
-        .setPlaceholder('e.g., $50.00 USD')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      const partnerInput = new TextInputBuilder()
-        .setCustomId('tx_partner')
-        .setLabel('👥 Whom are you dealing with?')
-        .setPlaceholder('e.g., Discord Username / User ID')
+      const user2Input = new TextInputBuilder()
+        .setCustomId('other_user')
+        .setLabel('OTHER PARTY DISCORD USERNAME / ID')
+        .setPlaceholder('Example: rxven_dev')
         .setStyle(TextInputStyle.Short)
         .setRequired(true);
 
       modal.addComponents(
-        new ActionRowBuilder().addComponents(itemInput),
-        new ActionRowBuilder().addComponents(amountInput),
-        new ActionRowBuilder().addComponents(partnerInput)
+        new ActionRowBuilder().addComponents(dealInput),
+        new ActionRowBuilder().addComponents(user2Input)
       );
 
       return await interaction.showModal(modal);
     }
 
-    // --- 2. HANDLE MODAL SUBMISSIONS & CREATION ---
-    if (interaction.isModalSubmit() && (interaction.customId === 'modal_paid_ticket' || interaction.customId === 'modal_free_ticket')) {
-      await interaction.deferReply({ ephemeral: true });
-      const isPaid = interaction.customId === 'modal_paid_ticket';
+    // --- 3. HANDLE REGISTRY MODAL SUBMISSIONS ---
+    if (interaction.customId === 'modal_mm_paid' || interaction.customId === 'modal_mm_free') {
+      await interaction.deferReply();
+      
+      const isPaid = interaction.customId === 'modal_mm_paid';
+      const dealDetails = interaction.fields.getTextInputValue('deal_details');
+      const otherUser = interaction.fields.getTextInputValue('other_user');
 
-      const txDetails = interaction.fields.getTextInputValue('tx_details');
-      const txAmount = interaction.fields.getTextInputValue('tx_amount');
-      const txPartner = interaction.fields.getTextInputValue('tx_partner');
+      const summonEmbed = new EmbedBuilder()
+        .setColor(isPaid ? '#00e5ff' : '#00ff66')
+        .setTitle(`📌 Pending Middleman Request [${isPaid ? 'PAID TIER' : 'DONATION'}]`)
+        .setDescription(`**Client:** ${interaction.user}\n**Counterparty:** \`${otherUser}\``)
+        .addFields({ name: '📝 Deal Metrics Description', value: dealDetails, inline: false })
+        .setTimestamp();
 
-      const guild = interaction.guild;
-      const channel = await guild.channels.create({
-        name: `${isPaid ? '💎┃priority' : '💝┃donation'}-${interaction.user.username}`,
-        type: ChannelType.GuildText,
-        permissionOverwrites: [
-          { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-          { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-          { id: OFFICIAL_MM_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
-        ]
+      const actionRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`claim_ticket`).setLabel('🛡️ Claim Session').setStyle(ButtonStyle.Success)
+      );
+
+      // Ping staff notifying them of the queue
+      await interaction.channel.send({ content: `<@&1520312604856029255> **New Trade Room Awaiting Claim!**`, embeds: [summonEmbed], components: [actionRow] });
+      return await interaction.deleteReply();
+    }
+
+    // --- 4. HANDLE MIDDLEMAN TICKET CLAIM BUTTONS ---
+    if (interaction.customId === 'claim_ticket') {
+      const staffRoleId = '1520312604856029255';
+      
+      if (!interaction.member.roles.cache.has(staffRoleId) && !interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+        return interaction.reply({ content: '❌ Access Denied: Only certified Middleman operators can claim this queue entry.', ephemeral: true });
+      }
+
+      await interaction.deferReply();
+
+      // Give the claiming middleman write access to this ticket channel
+      await interaction.channel.permissionOverwrites.edit(interaction.user.id, {
+        ViewChannel: true,
+        SendMessages: true,
+        ReadMessageHistory: true
       });
 
-      const welcomeEmbed = new EmbedBuilder()
-        .setTitle(isPaid ? '💎 Imperial Priority Session' : '💝 Imperial Donation Session')
-        .setColor(isPaid ? '#a04be0' : '#ffb6c1')
-        .setDescription(`Welcome ${interaction.user}. A private secure session has been established.\n\n**Selected Tier:** ${isPaid ? '`💎 PAID TIER (Fast Speed)`' : '`💝 DONATION TIER (Pay Any Amount)`'}`)
-        .addFields(
-          { name: '📝 What is the transaction?', value: `\`\`\`${txDetails}\`\`\`` },
-          { name: '💰 How much is the transaction?', value: `\`${txAmount}\``, inline: true },
-          { name: '👥 Whom are you dealing with?', value: `${txPartner}`, inline: true }
-        );
+      const claimedEmbed = new EmbedBuilder()
+        .setColor('#e67e22')
+        .setTitle('🛡️ Session Security Claimed')
+        .setDescription(`Your Middleman helper for this session will be ${interaction.user}.\n\nBoth parties must transfer asset keys inside this terminal only under direct supervision.`);
 
-      const controlRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId('claim_mm_ticket').setLabel('Claim Ticket').setEmoji('⚔️').setStyle(ButtonStyle.Success),
-        new ButtonBuilder().setCustomId('close_mm_ticket').setLabel('Close Ticket').setStyle(ButtonStyle.Danger)
+      const completeRow = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId(`complete_trade_${interaction.user.id}`).setLabel('✅ Complete & Generate Vouch Option').setStyle(ButtonStyle.Danger)
       );
 
-      await channel.send({ content: `<@&${OFFICIAL_MM_ROLE_ID}> | ${interaction.user} requested an agent!`, embeds: [welcomeEmbed], components: [controlRow] });
-      return await interaction.editReply({ content: `🏰 Ticket established successfully! Proceed to: ${channel}` });
+      await interaction.channel.send({ embeds: [claimedEmbed], components: [completeRow] });
+      return await interaction.deleteReply();
     }
 
-    // --- 3. CLAIM SERVICE TICKETS ---
-    if (interaction.customId === 'claim_mm_ticket') {
-      if (!interaction.member.roles.cache.has(OFFICIAL_MM_ROLE_ID)) {
-        return interaction.reply({ content: '❌ Access Denied: Only certified Middlemen can claim operations.', ephemeral: true });
+    // --- 5. HANDLE SESSION CLOSE AND VOUCH FORM GENERATION ---
+    if (interaction.customId.startsWith('complete_trade_')) {
+      const middlemanId = interaction.customId.split('complete_trade_')[1];
+
+      if (interaction.user.id !== middlemanId && !interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+        return interaction.reply({ content: '❌ Only the assigned middleman can click this action.', ephemeral: true });
       }
-
-      await interaction.deferUpdate();
-
-      const finishedRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`complete_mm_${interaction.user.id}`).setLabel('Complete Trade').setEmoji('🔒').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('close_mm_ticket').setLabel('Close Ticket').setStyle(ButtonStyle.Danger)
-      );
-
-      await interaction.channel.permissionOverwrites.set([
-        { id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-        { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
-        { id: OFFICIAL_MM_ROLE_ID, deny: [PermissionFlagsBits.ViewChannel] },
-        { id: interaction.guild.roles.cache.find(r => r.name === 'Support Staff')?.id || OFFICIAL_MM_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel] }
-      ]);
-
-      await interaction.channel.setName(`⚔️┃active-${interaction.user.username}`);
-      return await interaction.message.edit({ components: [finishedRow] });
-    }
-
-    // --- 4. CLOSE SERVICE TICKETS ---
-    if (interaction.customId === 'close_mm_ticket') {
-      await interaction.reply({ content: '⚠️ Locking channel directory container...' });
-      return setTimeout(() => interaction.channel.delete().catch(() => {}), 3000);
-    }
-
-    // --- 5. COMPLETE TRADE & SPAWN SYNCHRONIZED VOUCH BUTTON ---
-    if (interaction.customId.startsWith('complete_mm_')) {
-      const middlemanId = interaction.customId.split('complete_mm_')[1];
-
-      if (interaction.user.id !== middlemanId) {
-        return interaction.reply({ content: '❌ Access Denied: Only the assigned operator can close this operation.', ephemeral: true });
-      }
-
-      await interaction.deferUpdate();
 
       const finalRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`vouch_btn_${middlemanId}`).setLabel('Click to Vouch Middleman').setEmoji('⭐').setStyle(ButtonStyle.Success)
+        new ButtonBuilder().setCustomId(`vouch_btn_${middlemanId}`).setLabel('🏆 Leave Vouch Score').setStyle(ButtonStyle.Success)
       );
 
       await interaction.channel.send({
-        content: '🎉 **Transaction Complete!** The session has concluded successfully.\n\nThank you for using Imperial Middleman Services. Clients, please click the button below to add a verified vouch score onto your middleman\'s standing profile card matrix!',
+        content: '🎉 **Transaction Finished!** Click the green voucher button below to add a verified vouch score onto your middleman\'s standing profile card matrix!',
         components: [finalRow]
       });
 
@@ -176,21 +204,14 @@ module.exports = {
         return interaction.reply({ content: '❌ Security Exception: Operators cannot vouch for their own matrix files.', ephemeral: true });
       }
 
-      // CRITICAL FIX: Instantly tell Discord we are processing, solving "Interaction Failed"
       await interaction.deferReply();
 
-      // Read database dynamically from the absolute persistent cloud storage path
       let db = fs.existsSync(VOUCH_FILE) ? JSON.parse(fs.readFileSync(VOUCH_FILE, 'utf8')) : {};
-
-      // Increment value on the production database object
       db[middlemanId] = (db[middlemanId] || 0) + 1;
-
-      // Write update back to the exact persistent volume path immediately
       fs.writeFileSync(VOUCH_FILE, JSON.stringify(db, null, 2), 'utf8');
 
-      // Edit our deferred reply with the absolute accurate live file total 
       return await interaction.editReply({
-        content: `✅ **Vouch Recorded!** Added 1 vouch point to <@${middlemanId}>'s standing records matrix. (Total: **${db[middlemanId]}**)`
+        content: `✅ **Vouch Recorded!** Added 1 vouch point to <@${middlemanId}>. They now have \`${db[middlemanId]}\` total valid entries inside core database records!`
       });
     }
   }
