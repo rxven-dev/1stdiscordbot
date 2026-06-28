@@ -40,6 +40,7 @@ module.exports = {
   async handleInteraction(interaction) {
     // --- 1. HANDLE MAIN INITIAL BUTTON CLICKS FROM USERS ---
     if (interaction.customId === 'ticket_paid' || interaction.customId === 'ticket_free') {
+      // 🟢 CRITICAL FIXED LINE: Tell Discord we are working IMMEDIATELY to prevent "Interaction Failed"
       await interaction.deferReply({ ephemeral: true });
 
       const ticketType = interaction.customId === 'ticket_paid' ? 'paid' : 'free';
@@ -88,7 +89,7 @@ module.exports = {
         return await interaction.editReply({ content: `✅ Your ticket room has been initialized successfully: ${ticketChannel}` });
       } catch (err) {
         console.error('❌ Failed creating ticket channel:', err);
-        return await interaction.editReply({ content: `❌ System permission error. Please report this breakdown to administrators.` });
+        return await interaction.editReply({ content: `❌ System permission or channel creation error. Please ensure Category ID \`1520312527274115164\` exists.` });
       }
     }
 
@@ -119,6 +120,7 @@ module.exports = {
         new ActionRowBuilder().addComponents(user2Input)
       );
 
+      // Note: Modals handle their own instant acknowledgment, do not defer before showing them!
       return await interaction.showModal(modal);
     }
 
@@ -141,7 +143,6 @@ module.exports = {
         new ButtonBuilder().setCustomId(`claim_ticket`).setLabel('🛡️ Claim Session').setStyle(ButtonStyle.Success)
       );
 
-      // Ping staff notifying them of the queue
       await interaction.channel.send({ content: `<@&1520312604856029255> **New Trade Room Awaiting Claim!**`, embeds: [summonEmbed], components: [actionRow] });
       return await interaction.deleteReply();
     }
@@ -156,7 +157,6 @@ module.exports = {
 
       await interaction.deferReply();
 
-      // Give the claiming middleman write access to this ticket channel
       await interaction.channel.permissionOverwrites.edit(interaction.user.id, {
         ViewChannel: true,
         SendMessages: true,
