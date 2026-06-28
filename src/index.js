@@ -41,7 +41,7 @@ const ticketSystemModule = require('./ticketsystem.js');
 const ticketLegacy = require('./ticket.js');
 
 // --- ABSOLUTE DISCORD GLOBAL SLASH REGISTRY LOADER ---
-const commands = [
+const rawCommands = [
   new SlashCommandBuilder().setName('vouch').setDescription('Vouch for a trusted user after a transaction')
     .addUserOption(opt => opt.setName('user').setDescription('The user you want to vouch for').setRequired(true))
     .addAttachmentOption(opt => opt.setName('proof').setDescription('Provide screenshot transaction proof').setRequired(true)),
@@ -52,9 +52,12 @@ const commands = [
     .addNumberOption(opt => opt.setName('amount').setDescription('The exact deal size metric value').setRequired(true)),
   new SlashCommandBuilder().setName('mmstatus').setDescription('Toggle availability setting parameters for your duty status'),
   new SlashCommandBuilder().setName('ticketsystem').setDescription('Deploy the main Imperial Middleman Service Hub panel channel'),
-  profileCommand.data,
-  searchCommand.data
-].map(cmd => cmd.toJSON());
+  profileCommand?.data,
+  searchCommand?.data
+];
+
+// Clean map filtering out any undefined module components dynamically
+const commands = rawCommands.filter(cmd => cmd !== undefined && cmd !== null).map(cmd => cmd.toJSON());
 
 client.once('ready', async () => {
   console.log(`🚀 logged in safely as: ${client.user.tag}`);
@@ -67,7 +70,7 @@ client.once('ready', async () => {
     console.error("Leaderboard engine loading error: ", err);
   }
 
-  const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
+  const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
   try {
     await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
     console.log('✅ Synchronized global slash routing nodes completely.');
@@ -136,7 +139,7 @@ client.on('interactionCreate', async (interaction) => {
     const { customId } = interaction;
     
     // Pass modal setup window interactions straight into ticketsystem.js
-    if (customId === 'modal_paid_ticket' || customId === 'modal_free_ticket') {
+    if (customId === 'modal_paid_ticket' || customId === 'modal_free_ticket' || customId === 'mm_form_paid' || customId === 'mm_form_donate') {
       try {
         await ticketSystemModule.handleInteraction(interaction);
       } catch (e) {
@@ -259,7 +262,7 @@ client.on('ready', () => {
 
 // --- AUTOMATED ENGINE BOOT INITIALIZER ---
 if (!process.env.TOKEN) {
-  console.error("❌ CRITICAL ERROR: TOKEN is missing from your environment parameters configuration settings!");
+  console.error("❌ CRITICAL ERROR: TOKEN is missing from your configuration parameters!");
 } else {
   client.login(process.env.TOKEN).catch(err => {
     console.error("❌ Failed logging client configuration session node entry:", err);
