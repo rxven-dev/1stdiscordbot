@@ -46,7 +46,6 @@ module.exports = {
   },
 
   async handleInteraction(interaction) {
-    // Helper helper to check if clicking member holds at least one approved staff role
     const isStaffUser = interaction.member.roles.cache.some(role => STAFF_ROLES.includes(role.id)) || 
                         interaction.member.permissions.has(PermissionFlagsBits.Administrator);
 
@@ -87,7 +86,7 @@ module.exports = {
       return await interaction.showModal(modal);
     }
 
-    // --- 2. HANDLE MODAL SUBMISSIONS & CHANNEL CREATION ---
+    // --- 2. HANDLE MODAL SUBMISSIONS & CREATION ---
     if (interaction.isModalSubmit() && (interaction.customId === 'modal_paid_ticket' || interaction.customId === 'modal_free_ticket')) {
       await interaction.deferReply({ ephemeral: true });
       const isPaid = interaction.customId === 'modal_paid_ticket';
@@ -100,13 +99,13 @@ module.exports = {
       const targetCategoryId = '1520312527274115164';
       const categoryExists = guild.channels.cache.has(targetCategoryId);
 
-      // Build initial base permissions
+      // Everyone is locked out by default; ticket creator gets full view access
       const overwrites = [
         { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
         { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
       ];
 
-      // Add each authorized staff role into the room permissions cleanly
+      // Grant initial view access to all staff roles so they can see the ticket alert
       STAFF_ROLES.forEach(roleId => {
         if (guild.roles.cache.has(roleId)) {
           overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
@@ -115,7 +114,7 @@ module.exports = {
 
       try {
         const channelOptions = {
-          name: `${isPaid ? '💎┃priority' : '💝┃donation'}-${interaction.user.username}`,
+          name: `${isPaid ? 'priority' : 'donation'}-${interaction.user.id}`, // Embedded ID inside channel name context
           type: ChannelType.GuildText,
           permissionOverwrites: overwrites
         };
@@ -141,18 +140,17 @@ module.exports = {
           new ButtonBuilder().setCustomId('close_mm_ticket').setLabel('Close Ticket').setStyle(ButtonStyle.Danger)
         );
 
-        // Ping the first staff role as an alert tracker notice (Vanguard Lord)
         const alertPing = guild.roles.cache.has('1520310648582443089') ? `<@&1520310648582443089>` : `@Staff`;
 
         await channel.send({ content: `${alertPing} | ${interaction.user} requested an agent!`, embeds: [welcomeEmbed], components: [controlRow] });
         return await interaction.editReply({ content: `🏰 Ticket established successfully! Proceed to: ${channel}` });
       } catch (err) {
         console.error('❌ Failed creating ticket channel:', err);
-        return await interaction.editReply({ content: `❌ Critical system error while configuring secure channel parameters. Make sure the bot has full Administrator permissions.` });
+        return await interaction.editReply({ content: `❌ Critical system error while configuring secure channel parameters.` });
       }
     }
 
-    // --- 3. CLAIM SERVICE TICKETS ---
+    // --- 3. CLAIM SERVICE TICKETS (CORRECTED & ACCURATE) ---
     if (interaction.customId === 'claim_mm_ticket') {
       if (!isStaffUser) {
         return interaction.reply({ content: '❌ Access Denied: Only authorized Imperial Staff and Middlemen can claim operations.', ephemeral: true });
@@ -165,27 +163,41 @@ module.exports = {
         new ButtonBuilder().setCustomId('close_mm_ticket').setLabel('Close Ticket').setStyle(ButtonStyle.Danger)
       );
 
-      // 🟢 FIXED PERMISSION OVERWRITES STRUCTURE:
-      // This strictly limits the channel view to ONLY the user who opened the ticket, the middleman who claimed it, and Server Administrators.
-      await interaction.channel.permissionOverwrites.set([
-        { 
-          id: interaction.guild.roles.everyone.id, 
-          deny: [PermissionFlagsBits.ViewChannel] 
-        },
-        { 
-          id: interaction.channel.name.split('-')[1] ? (interaction.guild.members.cache.find(m => m.user.username === interaction.channel.name.split('-')[1])?.id || interaction.user.id) : interaction.user.id,
-          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] 
-        },
-        { 
-          id: interaction.user.id, // The claiming Middleman
-          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] 
-        }
-      ]);
+      // Extract original client ID from channel name fallback
+      const nameParts = interaction.channel.name.split('-');
+      const creatorId = nameParts[1] || interaction.user.id;
 
+      const updatedPermissions = [
+        { id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+        { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] } // Claiming Middleman
+      ];
+
+      // Explicitly lock out the other staff roles at the channel level
+      STAFF_ROLES.forEach(roleId => {
+        if (interaction.guild.roles.cache.has(roleId)) {
+          updatedPermissions.push({ id: roleId, deny: [PermissionFlagsBits.ViewChannel] });
+        }
+      });
+
+      // Maintain view rights for the ticket creator
+      if (creatorId !== interaction.user.id) {
+        updatedPermissions.push({ id: creatorId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+      }
+
+      await interaction.channel.permissionOverwrites.set(updatedPermissions);
       await interaction.channel.setName(`⚔️┃active-${interaction.user.username}`);
       
-      // 🟢 FIXED LINE HERE: Changed 'message.edit' to 'interaction.message.edit'
-      return await interaction.message.edit({ components: [finishedRow] }).catch(err => console.error("Failed to edit component rows:", err));
+      // Fixed interaction variable reference instead of raw message
+      return await interaction.message.edit({ components: [finishedRow] }).catch(() => {});
+    }
+
+    // --- 4. CLOSE SERVICE TICKETS ---
+    if (interaction.customId === 'close_mm_ticket') {
+      if (!isStaffUser) {
+        return interaction.reply({ content: '❌ Only staff members can delete active channel logs.', ephemeral: true });
+      }
+      await interaction.reply({ content: '⚠️ Locking and closing channel directory container...' });
+      return setTimeout(() => interaction.channel.delete().catch(() => {}), 3000);
     }
 
     // --- 5. COMPLETE TRADE & SPAWN SYNCHRONIZED VOUCH BUTTON ---
