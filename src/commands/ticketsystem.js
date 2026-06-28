@@ -1,251 +1,160 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ChannelType, PermissionFlagsBits, ModalBuilder, TextInputBuilder, TextInputStyle } = require('discord.js');
+const { EmbedBuilder, SlashCommandBuilder, MessageFlags } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
 
 const dataDir = fs.existsSync('/data') ? '/data' : process.cwd();
-const VOUCH_FILE = path.join(dataDir, 'vouches.json');
-
-// --- PERMITTED STAFF / OPERATOR ROLES MATRIX ---
-const STAFF_ROLES = [
-  '1520310648582443089', // Vanguard Lord 「 🔱 」
-  '1520310652021899415', // Immortal Legend 「 👑 」
-  '1414079432741617724', // Lord Commander 「 🛡️ 」 (Moderator)
-  '1414079646256857128', // High Chancellor 「 🏦 」 (Admin)
-  '1421722522851868827'  // Imperial Highness 「 👑 」
-];
+const vouchFilePath = path.join(dataDir, 'vouches.json');
+const scamFilePath = path.join(dataDir, 'scam_records.json');
+const dutyFilePath = path.join(dataDir, 'mm_duty_status.json');
 
 module.exports = {
-  name: 'ticketsystem',
-  async executeCommand(interaction) {
-    const PANEL_CHANNEL_ID = '1520312813678104626';
+  data: new SlashCommandBuilder()
+    .setName('profile')
+    .setDescription('View an Imperial Registry user profile background summary card')
+    .addUserOption(option => 
+      option.setName('user')
+        .setDescription('Select a member to view their credentials')
+        .setRequired(false)),
 
-    if (interaction.channelId !== PANEL_CHANNEL_ID) {
-      return interaction.reply({ content: `❌ You can only deploy this panel inside <#${PANEL_CHANNEL_ID}>.`, ephemeral: true });
+  async executeProfile(interaction) {
+    const targetUser = interaction.options.getUser('user') || interaction.user;
+    const userId = targetUser.id;
+    const ALLOWED_CHANNEL = '1520312703472631838';
+    
+    if (interaction.channelId !== ALLOWED_CHANNEL) {
+      return interaction.reply({ content: `❌ This command can only be used in <#${ALLOWED_CHANNEL}>.`, flags: MessageFlags.Ephemeral });
+    }
+    
+    await interaction.deferReply();
+
+    let vouchesData = {}; let scamsData = {}; let dutyData = { active: [], away: [] };
+    try { vouchesData = fs.existsSync(vouchFilePath) ? JSON.parse(fs.readFileSync(vouchFilePath, 'utf8')) : {}; } catch(e) {}
+    try { scamsData = fs.existsSync(scamFilePath) ? JSON.parse(fs.readFileSync(scamFilePath, 'utf8')) : {}; } catch(e) {}
+    try { dutyData = fs.existsSync(dutyFilePath) ? JSON.parse(fs.readFileSync(dutyFilePath, 'utf8')) : { active: [], away: [] }; } catch(e) {}
+
+    const totalVouches = vouchesData[userId] || 0;
+    const verifiedScams = scamsData[userId] || 0;
+
+    let rank = 'Neutral Civilian / External Party 👤';
+    let embedColor = '#95a5a6';
+
+    if (totalVouches >= 100) { rank = 'Vanguard Lord 🔱 (100+ Vouches)'; embedColor = '#f1c40f'; }
+    else if (totalVouches >= 70) { rank = 'Immortal Legend 👑 (70+ Vouches)'; embedColor = '#e74c3c'; }
+    else if (totalVouches >= 40) { rank = 'Apex Overlord ⚔️ (40+ Vouches)'; embedColor = '#9b59b6'; }
+    else if (totalVouches >= 20) { rank = 'Elite Mercenary 🛡️ (20+ Vouches)'; embedColor = '#3498db'; }
+    else if (totalVouches >= 10) { rank = 'Trusted Vendor 📦 (10+ Vouches)'; embedColor = '#2ecc71'; }
+    else if (totalVouches >= 5) { rank = 'Rising Merchant 📈 (5+ Vouches)'; embedColor = '#1abc9c'; }
+    else if (totalVouches >= 1) { rank = 'Verified Trader 🤝 (1+ Vouch)'; embedColor = '#34495e'; }
+
+    if (verifiedScams > 0) {
+      rank = '☣️ BLACKLISTED SCAMMER ☣️';
+      embedColor = '#000000';
     }
 
-    const embed = new EmbedBuilder()
-      .setTitle('🏰 Imperial Middleman Services')
-      .setColor('#a04be0')
-      .setDescription(
-        'Need a trusted safe transaction? Select your preferred service tier below to open a secure room. ' +
-        'Only official trusted staff members will be summoned to assist you.\n\n' +
-        '💎 **PAID SERVICE TIER (5% Fee)**\n' +
-        'Our staff team handles your transaction with maximum speed priority.\n\n' +
-        '💝 **DONATION TIER (Pay Any Amount)**\n' +
-        'Available for all members. Middleman processing speeds depend on queue workload volume.'
-      )
-      .setFooter({ text: 'Imperial Security Matrix System Protocols' });
+    // --- FIXED PROGRESS BAR CALCULATOR LOGIC MATRIX ---
+    let nextMilestone = '🎉 Elite Champion Rank Maxed Out!';
+    let progressString = '████████████████████ 100%';
 
-    const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId('open_paid_ticket').setLabel('Request Paid Service').setEmoji('💎').setStyle(ButtonStyle.Primary),
-      new ButtonBuilder().setCustomId('open_free_ticket').setLabel('Request Donation Service').setEmoji('💝').setStyle(ButtonStyle.Secondary)
-    );
-
-    await interaction.reply({ content: '✅ Middleman panel deployed successfully.', ephemeral: true });
-    return await interaction.channel.send({ embeds: [embed], components: [row] });
-  },
-
-  async handleInteraction(interaction) {
-    const isStaffUser = interaction.member.roles.cache.some(role => STAFF_ROLES.includes(role.id)) || 
-                        interaction.member.permissions.has(PermissionFlagsBits.Administrator);
-
-    // --- 1. HANDLE TIER MODAL CREATION POPUPS ---
-    if (interaction.customId === 'open_paid_ticket' || interaction.customId === 'open_free_ticket') {
-      const isPaid = interaction.customId === 'open_paid_ticket';
-      const modal = new ModalBuilder()
-        .setCustomId(isPaid ? 'modal_paid_ticket' : 'modal_free_ticket')
-        .setTitle(isPaid ? '💎 Priority Session Setup' : '💝 Donation Session Setup');
-
-      const itemInput = new TextInputBuilder()
-        .setCustomId('tx_details')
-        .setLabel('📝 What is the transaction?')
-        .setPlaceholder('e.g., Trading Roblox Limited Adurite for $50 Crypto LTC')
-        .setStyle(TextInputStyle.Paragraph)
-        .setRequired(true);
-
-      const amountInput = new TextInputBuilder()
-        .setCustomId('tx_amount')
-        .setLabel('💰 How much is the transaction?')
-        .setPlaceholder('e.g., $50.00 USD')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      const partnerInput = new TextInputBuilder()
-        .setCustomId('tx_partner')
-        .setLabel('👥 Whom are you dealing with?')
-        .setPlaceholder('e.g., Discord Username / User ID')
-        .setStyle(TextInputStyle.Short)
-        .setRequired(true);
-
-      modal.addComponents(
-        new ActionRowBuilder().addComponents(itemInput),
-        new ActionRowBuilder().addComponents(amountInput),
-        new ActionRowBuilder().addComponents(partnerInput)
-      );
-
-      return await interaction.showModal(modal);
-    }
-
-    // --- 2. HANDLE MODAL SUBMISSIONS & CREATION ---
-    if (interaction.isModalSubmit() && (interaction.customId === 'modal_paid_ticket' || interaction.customId === 'modal_free_ticket')) {
-      await interaction.deferReply({ ephemeral: true });
-      const isPaid = interaction.customId === 'modal_paid_ticket';
-
-      const txDetails = interaction.fields.getTextInputValue('tx_details');
-      const txAmount = interaction.fields.getTextInputValue('tx_amount');
-      const txPartner = interaction.fields.getTextInputValue('tx_partner');
-
-      const guild = interaction.guild;
-      const targetCategoryId = '1520312527274115164';
-      const categoryExists = guild.channels.cache.has(targetCategoryId);
-
-      const overwrites = [
-        { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-        { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
-      ];
-
-      STAFF_ROLES.forEach(roleId => {
-        if (guild.roles.cache.has(roleId)) {
-          overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
-        }
-      });
-
-      try {
-        const channelOptions = {
-          name: `${isPaid ? 'priority' : 'donation'}-${interaction.user.id}`, 
-          type: ChannelType.GuildText,
-          permissionOverwrites: overwrites
-        };
-
-        if (categoryExists) {
-          channelOptions.parent = targetCategoryId;
-        }
-
-        const channel = await guild.channels.create(channelOptions);
-
-        const welcomeEmbed = new EmbedBuilder()
-          .setTitle(isPaid ? '💎 Imperial Priority Session' : '💝 Imperial Donation Session')
-          .setColor(isPaid ? '#a04be0' : '#ffb6c1')
-          .setDescription(`Welcome ${interaction.user}. A private secure session has been established.\n\n**Selected Tier:** ${isPaid ? '`💎 PAID TIER (Fast Speed)`' : '`💝 DONATION TIER (Pay Any Amount)`'}`)
-          .addFields(
-            { name: '📝 What is the transaction?', value: `\`\`\`${txDetails}\`\`\`` },
-            { name: '💰 How much is the transaction?', value: `\`${txAmount}\``, inline: true },
-            { name: '👥 Whom are you dealing with?', value: `${txPartner}`, inline: true }
-          );
-
-        const controlRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId('claim_mm_ticket').setLabel('Claim').setEmoji('⚔️').setStyle(ButtonStyle.Success),
-          new ButtonBuilder().setCustomId('close_mm_ticket').setLabel('Close').setEmoji('🗑️').setStyle(ButtonStyle.Danger)
-        );
-
-        const alertPing = guild.roles.cache.has('1520310648582443089') ? `<@&1520310648582443089>` : `@Staff`;
-
-        await channel.send({ content: `${alertPing} | ${interaction.user} requested an agent!`, embeds: [welcomeEmbed], components: [controlRow] });
-        return await interaction.editReply({ content: `🏰 Ticket established successfully! Proceed to: ${channel}` });
-      } catch (err) {
-        console.error('❌ Failed creating ticket channel:', err);
-        return await interaction.editReply({ content: `❌ Critical system error while configuring secure channel parameters.` });
-      }
-    }
-
-    // --- 3. CLAIM SERVICE TICKETS ---
-    if (interaction.customId === 'claim_mm_ticket') {
-      if (!isStaffUser) {
-        return interaction.reply({ content: '❌ Access Denied: Only authorized Imperial Staff and Middlemen can claim operations.', ephemeral: true });
-      }
-
-      await interaction.deferUpdate();
-
-      // 🟢 OPTIMIZED SHORT LABELS: Prevents button splitting onto 2 rows on mobile!
-      const finishedRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`complete_mm_${interaction.user.id}`).setLabel('Complete').setEmoji('🔒').setStyle(ButtonStyle.Primary),
-        new ButtonBuilder().setCustomId('close_mm_ticket').setLabel('Close').setEmoji('🗑️').setStyle(ButtonStyle.Danger)
-      );
-
-      const nameParts = interaction.channel.name.split('-');
-      const creatorId = nameParts[1] || interaction.user.id;
-
-      const updatedPermissions = [
-        { 
-          id: interaction.guild.roles.everyone.id, 
-          deny: [PermissionFlagsBits.ViewChannel] 
-        },
-        { 
-          id: interaction.user.id, 
-          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] 
-        }
-      ];
-
-      STAFF_ROLES.forEach(roleId => {
-        if (interaction.guild.roles.cache.has(roleId)) {
-          updatedPermissions.push({ 
-            id: roleId, 
-            deny: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] 
-          });
-        }
-      });
-
-      if (creatorId !== interaction.user.id) {
-        updatedPermissions.push({ 
-          id: creatorId, 
-          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] 
-        });
-      }
-
-      await interaction.channel.permissionOverwrites.set(updatedPermissions);
-      await interaction.channel.setName(`⚔️┃active-${interaction.user.username}`);
+    function generateProgressBar(current, min, max) {
+      const targetRange = max - min;
+      const gainedInTier = current - min;
+      const percentage = Math.min(Math.max(Math.floor((gainedInTier / targetRange) * 100), 0), 100);
       
-      return await interaction.message.edit({ components: [finishedRow] }).catch(() => {});
+      // 10 segments total for clean visual presentation
+      const filledBlocks = Math.round(percentage / 10);
+      const emptyBlocks = 10 - filledBlocks;
+      return '█'.repeat(filledBlocks) + '░'.repeat(emptyBlocks) + ` ${percentage}%`;
     }
 
-    // --- 4. CLOSE SERVICE TICKETS ---
-    if (interaction.customId === 'close_mm_ticket') {
-      if (!isStaffUser) {
-        return interaction.reply({ content: '❌ Only staff members can delete active channel logs.', ephemeral: true });
-      }
-      await interaction.reply({ content: '⚠️ Locking and closing channel directory container...' });
-      return setTimeout(() => interaction.channel.delete().catch(() => {}), 3000);
+    if (totalVouches < 1) { 
+      nextMilestone = 'Verified Trader 🤝 (1 Vouch Required)'; 
+      progressString = '░░░░░░░░░░ 0%'; 
+    }
+    else if (totalVouches < 5) { 
+      progressString = generateProgressBar(totalVouches, 1, 5);
+      nextMilestone = `Rising Merchant 📈 (${5 - totalVouches} more required)`;
+    } else if (totalVouches < 10) {
+      progressString = generateProgressBar(totalVouches, 5, 10);
+      nextMilestone = `Trusted Vendor 📦 (${10 - totalVouches} more required)`;
+    } else if (totalVouches < 20) {
+      progressString = generateProgressBar(totalVouches, 10, 20);
+      nextMilestone = `Elite Mercenary 🛡️ (${20 - totalVouches} more required)`;
+    } else if (totalVouches < 40) {
+      progressString = generateProgressBar(totalVouches, 20, 40);
+      nextMilestone = `Apex Overlord ⚔️ (${40 - totalVouches} more required)`;
+    } else if (totalVouches < 70) {
+      progressString = generateProgressBar(totalVouches, 40, 70);
+      nextMilestone = `Immortal Legend 👑 (${70 - totalVouches} more required)`;
+    } else if (totalVouches < 100) {
+      progressString = generateProgressBar(totalVouches, 70, 100);
+      nextMilestone = `Vanguard Lord 🔱 (${100 - totalVouches} more required)`;
     }
 
-    // --- 5. COMPLETE TRADE & SPAWN SYNCHRONIZED VOUCH BUTTON ---
-    if (interaction.customId.startsWith('complete_mm_')) {
-      const middlemanId = interaction.customId.split('complete_mm_')[1];
+    let staffBadgeValue = '';
+    let cardTitlePrefix = 'Imperial Network ID Card';
+    const member = await interaction.guild.members.fetch(userId).catch(() => null);
+    const isBot = targetUser.bot;
 
-      if (interaction.user.id !== middlemanId && !interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
-        return interaction.reply({ content: '❌ Access Denied: Only the assigned operator or admin can close this operation.', ephemeral: true });
+    if (member) {
+      if (member.roles.cache.has('1421722522851868827')) {
+        staffBadgeValue = '👑 **Imperial Highness** | Divine Crown Ruler';
+        cardTitlePrefix = '👑 Imperial Royal Sovereign Matrix File';
+        embedColor = '#ff007f'; 
+      } 
+      else if (member.permissions.has('Administrator') || member.roles.cache.has('1414079646256857128')) {
+        staffBadgeValue = '💎 **High Chancellor** | Server Overseer Operations';
+        cardTitlePrefix = '🏛️ Imperial Administrative Matrix File';
+        embedColor = '#a04be0'; 
+      } 
+      else if (member.roles.cache.has('1414079432741617724')) {
+        staffBadgeValue = '🛡️ **Lord Commander** | Security Division Force';
+        cardTitlePrefix = '⚔️ Staff Guard Operational Profile';
+        embedColor = '#e67e22';
+      } 
+      else if (member.roles.cache.has('1520310648582443089')) {
+        staffBadgeValue = '🔱 **Vanguard Lord** | Certified Middleman Operator';
+        cardTitlePrefix = '📜 Imperial Certified Middleman Ledger';
       }
+    }
 
-      await interaction.deferUpdate();
+    let statusQuote = '';
+    if (member && (member.roles.cache.has('1520310648582443089') || member.permissions.has('Administrator') || member.roles.cache.has('1421722522851868827'))) {
+      const isActive = dutyData.active && dutyData.active.includes(userId);
+      statusQuote = isActive ? '🟢 Online & Accepting Middleman Trades' : '🔴 On Break / Currently Unavailable';
+    }
 
-      const finalRow = new ActionRowBuilder().addComponents(
-        new ButtonBuilder().setCustomId(`vouch_btn_${middlemanId}`).setLabel('Click to Vouch Middleman').setEmoji('⭐').setStyle(ButtonStyle.Success)
+    const profileEmbed = new EmbedBuilder()
+      .setTitle(`${cardTitlePrefix}: ${targetUser.username}`)
+      .setColor(embedColor)
+      .setThumbnail(targetUser.displayAvatarURL({ dynamic: true }));
+
+    if (isBot) {
+      profileEmbed.addFields(
+        { name: '🎗️ System Designation', value: staffBadgeValue || '🤖 Automated Defense Mechanism', inline: false },
+        { name: '⚙️ Operations Status', value: '🤖 Active Cybernetic Node (24/7 Monitoring)', inline: false }
+      );
+    } else {
+      profileEmbed.addFields(
+        { name: '✨ Current Rank', value: rank, inline: false },
+        { name: '🏆 Total Vouches', value: `\`${totalVouches}\` vouches`, inline: true },
+        { name: '⚠️ Scam Records', value: `🛑 \`${verifiedScams}\` Verified Scams`, inline: true }
       );
 
-      await interaction.channel.send({
-        content: '🎉 **Transaction Complete!** The session has concluded successfully.\n\nThank you for using Imperial Middleman Services. Clients, please click the button below to add a verified vouch score onto your middleman\'s standing profile card matrix!',
-        components: [finalRow]
-      });
-
-      return await interaction.message.edit({ components: [] });
-    }
-
-    // --- 6. HANDLE THE VOUCH BUTTON OPERATION AND LIVE DATABASE WRITE ---
-    if (interaction.customId.startsWith('vouch_btn_')) {
-      const middlemanId = interaction.customId.split('vouch_btn_')[1];
-
-      if (interaction.user.id === middlemanId) {
-        return interaction.reply({ content: '❌ Security Exception: Operators cannot vouch for their own matrix files.', ephemeral: true });
+      if (staffBadgeValue) {
+        profileEmbed.addFields({ name: '🎗️ Authority Status Badge', value: staffBadgeValue, inline: false });
       }
 
-      await interaction.deferReply();
+      if (statusQuote) {
+        profileEmbed.setDescription(statusQuote);
+      }
 
-      let db = fs.existsSync(VOUCH_FILE) ? JSON.parse(fs.readFileSync(VOUCH_FILE, 'utf8')) : {};
-      db[middlemanId] = (db[middlemanId] || 0) + 1;
-      fs.writeFileSync(VOUCH_FILE, JSON.stringify(db, null, 2), 'utf8');
-
-      return await interaction.editReply({
-        content: `✅ **Vouch Recorded!** Added 1 vouch point to <@${middlemanId}>'s standing records matrix. (Total: **${db[middlemanId]}**)`
-      });
+      profileEmbed.addFields(
+        { name: '🎯 Next Milestone', value: nextMilestone, inline: false },
+        { name: '📊 Progress Bar', value: progressString, inline: false },
+        { name: '📅 Registry Footprint', value: `Account Built: <t:${Math.floor(targetUser.createdTimestamp / 1000)}:R>`, inline: false }
+      );
     }
+
+    return await interaction.editReply({ embeds: [profileEmbed] });
   }
 };
