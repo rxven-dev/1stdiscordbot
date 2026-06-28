@@ -100,7 +100,6 @@ client.on('interactionCreate', async (interaction) => {
   if (interaction.isButton()) {
     const { customId } = interaction;
 
-    // CENTRAL ROUTE COUPLING: Safely forward all ticket interactions to ticketsystem.js
     if (
       customId === 'open_paid_ticket' || 
       customId === 'open_free_ticket' || 
@@ -117,7 +116,6 @@ client.on('interactionCreate', async (interaction) => {
       return;
     }
 
-    // Handle separate system administration buttons
     if (customId.startsWith('unmute_')) {
       if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) { 
         return await interaction.reply({ content: '❌ You do not have permission to unmute users.', ephemeral: true }); 
@@ -138,7 +136,6 @@ client.on('interactionCreate', async (interaction) => {
   if (interaction.isModalSubmit()) {
     const { customId } = interaction;
     
-    // Pass modal setup window interactions straight into ticketsystem.js
     if (customId === 'modal_paid_ticket' || customId === 'modal_free_ticket' || customId === 'mm_form_paid' || customId === 'mm_form_donate') {
       try {
         await ticketSystemModule.handleInteraction(interaction);
@@ -166,7 +163,6 @@ client.on('messageCreate', async (message) => {
   const LOG_CHANNEL_ID = '1326444654924206121';
   const inputLower = message.content.toLowerCase();
 
-  // 1. DESTRUCTIVE LINK FILTER (DISCORD INVITATIONS SCANNER)
   if (inputLower.includes('discord.gg/') || inputLower.includes('discord.com/invite/')) {
     if (message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
 
@@ -201,7 +197,6 @@ client.on('messageCreate', async (message) => {
     return;
   }
 
-  // 2. SCAM PHISHING DOMAINS & RESTRICTED PHRASE MATRICES
   const prohibitedPhrases = [
     'free nitro', 'nitro gift', 'steam-nitro', 'discorcl', 'dlscord', 
     'gift-nitro', 'promonitro', 'cliscord', 'boost-nitro'
@@ -255,10 +250,17 @@ function runModules() {
   }
 }
 
-// Fire automated internal background task sequences upon active client sync
 client.on('ready', () => {
   runModules();
 });
+
+
+// --- DIAGNOSTIC TEST MODE ---
+console.log("🔍 DIAGNOSTIC: process.env.TOKEN exists?", !!process.env.TOKEN);
+if (process.env.TOKEN) {
+  console.log("🔍 DIAGNOSTIC: Token starts with:", process.env.TOKEN.substring(0, 5));
+  console.log("🔍 DIAGNOSTIC: Token length is:", process.env.TOKEN.length);
+}
 
 // --- AUTOMATED ENGINE BOOT INITIALIZER ---
 if (!process.env.TOKEN) {
