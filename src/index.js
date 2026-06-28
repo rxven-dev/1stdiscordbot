@@ -49,17 +49,9 @@ const rawCommands = [
   new SlashCommandBuilder().setName('scam').setDescription('Log a verified scam event entry metric')
     .addUserOption(opt => opt.setName('user').setDescription('The target offender user').setRequired(true))
     .addStringOption(opt => opt.setName('reason').setDescription('Reasoning behind entry').setRequired(true)),
-  
-  // 🟢 CHANGED: Pull directly from tax.js data configuration mapping instead of hardcoding it here!
-  taxModule?.data, 
-    
-  // --- MMSTATUS WITH CHOICE DROPDOWNS INTEGRATED HERE ---
-  new SlashCommandBuilder().setName('mmstatus').setDescription('Toggle availability setting parameters for your duty status')
-    .addStringOption(opt => opt.setName('status').setDescription('Select your live availability status').setRequired(true)
-      .addChoices(
-        { name: '🟢 Available / Active', value: 'active' },
-        { name: '🔴 Unavailable / Away', value: 'away' }
-      )),
+  new SlashCommandBuilder().setName('tax').setDescription('Calculate intermediary transaction service tax fee percentages')
+    .addNumberOption(opt => opt.setName('amount').setDescription('The exact deal size metric value').setRequired(true)),
+  new SlashCommandBuilder().setName('mmstatus').setDescription('Toggle availability setting parameters for your duty status'),
   new SlashCommandBuilder().setName('ticketpanel').setDescription('Deploy the main Imperial Middleman Service Hub panel channel'),
   profileCommand?.data,
   searchCommand?.data
@@ -96,7 +88,7 @@ client.on('interactionCreate', async (interaction) => {
       if (commandName === 'vouch') await vouchModule.executeVouch(interaction);
       if (commandName === 'scam') await scamModule.executeScam(interaction);
       if (commandName === 'tax') await taxModule.executeTax(interaction);
-      if (commandName === 'mmstatus') await mmStatusModule.execute(interaction);
+      if (commandName === 'mmstatus') await mmStatusModule.executeStatus(interaction);
       if (commandName === 'ticketpanel') await ticketSystemModule.executeCommand(interaction);
       if (commandName === 'profile') await profileCommand.executeProfile(interaction);
       if (commandName === 'search') await searchCommand.executeSearch(interaction);
