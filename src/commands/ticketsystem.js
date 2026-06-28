@@ -165,23 +165,27 @@ module.exports = {
         new ButtonBuilder().setCustomId('close_mm_ticket').setLabel('Close Ticket').setStyle(ButtonStyle.Danger)
       );
 
-      // Lock room view strictly down to the opening client, the specific claiming middleman, and administrators
+      // 🟢 FIXED PERMISSION OVERWRITES STRUCTURE:
+      // This strictly limits the channel view to ONLY the user who opened the ticket, the middleman who claimed it, and Server Administrators.
       await interaction.channel.permissionOverwrites.set([
-        { id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-        { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+        { 
+          id: interaction.guild.roles.everyone.id, 
+          deny: [PermissionFlagsBits.ViewChannel] 
+        },
+        { 
+          id: interaction.channel.name.split('-')[1] ? (interaction.guild.members.cache.find(m => m.user.username === interaction.channel.name.split('-')[1])?.id || interaction.user.id) : interaction.user.id,
+          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] 
+        },
+        { 
+          id: interaction.user.id, // The claiming Middleman
+          allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] 
+        }
       ]);
 
-      await interaction.channel.setName(`Active - ${interaction.user.username}`);
-      return await message.edit({ components: [finishedRow] }).catch(() => interaction.message.edit({ components: [finishedRow] }));
-    }
-
-    // --- 4. CLOSE SERVICE TICKETS ---
-    if (interaction.customId === 'close_mm_ticket') {
-      if (!isStaffUser) {
-        return interaction.reply({ content: '❌ Only staff members can delete active channel logs.', ephemeral: true });
-      }
-      await interaction.reply({ content: '⚠️ Locking and closing channel directory container...' });
-      return setTimeout(() => interaction.channel.delete().catch(() => {}), 3000);
+      await interaction.channel.setName(`⚔️┃active-${interaction.user.username}`);
+      
+      // 🟢 FIXED LINE HERE: Changed 'message.edit' to 'interaction.message.edit'
+      return await interaction.message.edit({ components: [finishedRow] }).catch(err => console.error("Failed to edit component rows:", err));
     }
 
     // --- 5. COMPLETE TRADE & SPAWN SYNCHRONIZED VOUCH BUTTON ---
