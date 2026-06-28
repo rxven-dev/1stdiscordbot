@@ -40,7 +40,6 @@ const ticketLegacy       = require('./commands/ticket.js');
 const vouchModule        = require('./modules/vouch.js');
 const scamModule         = require('./modules/scam.js');
 const monitorModule      = require('./modules/monitor.js');
-const monitorModule      = require('./modules/monitor.js');
 
 // --- ABSOLUTE DISCORD GLOBAL SLASH REGISTRY LOADER ---
 const rawCommands = [
@@ -51,8 +50,8 @@ const rawCommands = [
     .addUserOption(opt => opt.setName('user').setDescription('The target offender user').setRequired(true))
     .addStringOption(opt => opt.setName('reason').setDescription('Reasoning behind entry').setRequired(true)),
   
-  // 🟢 CHANGED: Pull directly from tax.js data configuration mapping instead of hardcoding it here!
-  taxModule?.data, 
+  // 🟢 Fixed Tax Option Reference
+  taxModule?.data,
     
   // --- MMSTATUS WITH CHOICE DROPDOWNS INTEGRATED HERE ---
   new SlashCommandBuilder().setName('mmstatus').setDescription('Toggle availability setting parameters for your duty status')
@@ -62,8 +61,11 @@ const rawCommands = [
         { name: '🔴 Unavailable / Away', value: 'away' }
       )),
   new SlashCommandBuilder().setName('ticketpanel').setDescription('Deploy the main Imperial Middleman Service Hub panel channel'),
+  
+  // 🟢 ADDED: Registers /checkvouches directly onto your server listing
   new SlashCommandBuilder().setName('checkvouches').setDescription('Imperial Staff audit terminal to check reputation profiles')
     .addUserOption(opt => opt.setName('target').setDescription('The target member to audit background ledger items').setRequired(false)),
+
   profileCommand?.data,
   searchCommand?.data
 ];
