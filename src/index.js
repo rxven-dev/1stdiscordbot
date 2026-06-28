@@ -34,7 +34,7 @@ const searchCommand      = require('./commands/search.js');
 const profileCommand     = require('./commands/profile.js');
 const taxModule          = require('./commands/tax.js');
 const mmStatusModule     = require('./commands/mmstatus.js');
-const ticketSystemModule = require('./commands/ticketSystem.js');
+const ticketsystemCommand = require('./commands/ticketsystem.js');
 
 const vouchModule        = require('./modules/vouch.js');
 const scamModule         = require('./modules/scam.js');
