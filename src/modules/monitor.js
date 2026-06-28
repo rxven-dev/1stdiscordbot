@@ -28,8 +28,8 @@ module.exports = {
         .setDescription(`Detailed background check on member: ${targetUser}`)
         .addFields(
           { name: '🆔 User Snowflake ID', value: `\`${targetUser.id}\``, inline: false },
-          { name: '🏆 Total Logged Vouches', value: `**${vouches}** valid entries`, inline: true },
-          { name: '📜 Current Ledger Standing', value: vouches >= 100 ? '🔱 **Official Middleman**' : '🪵 Common Trader', inline: true }
+          { name: '🏆 Total Logged Vouches', value: `**${vouches}** valid entries`, inline: false }, // 🟢 Changed inline to false for perfect layout stacking!
+          { name: '📜 Current Ledger Standing', value: vouches >= 100 ? '🔱 **Official Middleman**' : '🪵 Common Trader', inline: false } // 🟢 Changed inline to false!
         );
 
       return interaction.reply({ embeds: [embed], ephemeral: true });
