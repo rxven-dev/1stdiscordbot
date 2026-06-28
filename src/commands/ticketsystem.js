@@ -5,6 +5,15 @@ const path = require('path');
 const dataDir = fs.existsSync('/data') ? '/data' : process.cwd();
 const VOUCH_FILE = path.join(dataDir, 'vouches.json');
 
+// --- PERMITTED STAFF / OPERATOR ROLES MATRIX ---
+const STAFF_ROLES = [
+  '1520310648582443089', // Vanguard Lord 「 🔱 」
+  '1520310652021899415', // Immortal Legend 「 👑 」
+  '1414079432741617724', // Lord Commander 「 🛡️ 」 (Moderator)
+  '1414079646256857128', // High Chancellor 「 🏦 」 (Admin)
+  '1421722522851868827'  // Imperial Highness 「 👑 」
+];
+
 module.exports = {
   name: 'ticketsystem',
   async executeCommand(interaction) {
@@ -19,7 +28,7 @@ module.exports = {
       .setColor('#a04be0')
       .setDescription(
         'Need a trusted safe transaction? Select your preferred service tier below to open a secure room. ' +
-        'Only official trusted **Vanguard Lords (100+ Vouches)** will be summoned to assist you.\n\n' +
+        'Only official trusted staff members will be summoned to assist you.\n\n' +
         '💎 **PAID SERVICE TIER (5% Fee)**\n' +
         'Our staff team handles your transaction with maximum speed priority.\n\n' +
         '💝 **DONATION TIER (Pay Any Amount)**\n' +
@@ -37,11 +46,9 @@ module.exports = {
   },
 
   async handleInteraction(interaction) {
-    const OFFICIAL_MM_ROLE_ID = '1520310648582443089';
-    const OFFICIAL_MM_ROLE_ID = '1520310652021899415';
-    const OFFICIAL_MM_ROLE_ID = '1414079432741617724';
-    const OFFICIAL_MM_ROLE_ID = '1414079646256857128';
-    const OFFICIAL_MM_ROLE_ID = '1421722522851868827';
+    // Helper helper to check if clicking member holds at least one approved staff role
+    const isStaffUser = interaction.member.roles.cache.some(role => STAFF_ROLES.includes(role.id)) || 
+                        interaction.member.permissions.has(PermissionFlagsBits.Administrator);
 
     // --- 1. HANDLE TIER MODAL CREATION POPUPS ---
     if (interaction.customId === 'open_paid_ticket' || interaction.customId === 'open_free_ticket') {
@@ -90,20 +97,21 @@ module.exports = {
       const txPartner = interaction.fields.getTextInputValue('tx_partner');
 
       const guild = interaction.guild;
-      
-      // Dynamic fallback if the specified category ID doesn't exist on your server layout
       const targetCategoryId = '1520312527274115164';
       const categoryExists = guild.channels.cache.has(targetCategoryId);
 
-      // Build safe permission allocation array
+      // Build initial base permissions
       const overwrites = [
         { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
         { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
       ];
 
-      if (guild.roles.cache.has(OFFICIAL_MM_ROLE_ID)) {
-        overwrites.push({ id: OFFICIAL_MM_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
-      }
+      // Add each authorized staff role into the room permissions cleanly
+      STAFF_ROLES.forEach(roleId => {
+        if (guild.roles.cache.has(roleId)) {
+          overwrites.push({ id: roleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+        }
+      });
 
       try {
         const channelOptions = {
@@ -133,7 +141,10 @@ module.exports = {
           new ButtonBuilder().setCustomId('close_mm_ticket').setLabel('Close Ticket').setStyle(ButtonStyle.Danger)
         );
 
-        await channel.send({ content: guild.roles.cache.has(OFFICIAL_MM_ROLE_ID) ? `<@&${OFFICIAL_MM_ROLE_ID}> | ${interaction.user} requested an agent!` : `${interaction.user} requested an agent!`, embeds: [welcomeEmbed], components: [controlRow] });
+        // Ping the first staff role as an alert tracker notice (Vanguard Lord)
+        const alertPing = guild.roles.cache.has('1520310648582443089') ? `<@&1520310648582443089>` : `@Staff`;
+
+        await channel.send({ content: `${alertPing} | ${interaction.user} requested an agent!`, embeds: [welcomeEmbed], components: [controlRow] });
         return await interaction.editReply({ content: `🏰 Ticket established successfully! Proceed to: ${channel}` });
       } catch (err) {
         console.error('❌ Failed creating ticket channel:', err);
@@ -143,8 +154,8 @@ module.exports = {
 
     // --- 3. CLAIM SERVICE TICKETS ---
     if (interaction.customId === 'claim_mm_ticket') {
-      if (!interaction.member.roles.cache.has(OFFICIAL_MM_ROLE_ID)) {
-        return interaction.reply({ content: '❌ Access Denied: Only certified Middlemen can claim operations.', ephemeral: true });
+      if (!isStaffUser) {
+        return interaction.reply({ content: '❌ Access Denied: Only authorized Imperial Staff and Middlemen can claim operations.', ephemeral: true });
       }
 
       await interaction.deferUpdate();
@@ -154,19 +165,22 @@ module.exports = {
         new ButtonBuilder().setCustomId('close_mm_ticket').setLabel('Close Ticket').setStyle(ButtonStyle.Danger)
       );
 
+      // Lock room view strictly down to the opening client, the specific claiming middleman, and administrators
       await interaction.channel.permissionOverwrites.set([
         { id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-        { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
         { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
       ]);
 
-      await interaction.channel.setName(`⚔️┃active-${interaction.user.username}`);
-      return await interaction.message.edit({ components: [finishedRow] });
+      await interaction.channel.setName(`Active - ${interaction.user.username}`);
+      return await message.edit({ components: [finishedRow] }).catch(() => interaction.message.edit({ components: [finishedRow] }));
     }
 
     // --- 4. CLOSE SERVICE TICKETS ---
     if (interaction.customId === 'close_mm_ticket') {
-      await interaction.reply({ content: '⚠️ Locking channel directory container...' });
+      if (!isStaffUser) {
+        return interaction.reply({ content: '❌ Only staff members can delete active channel logs.', ephemeral: true });
+      }
+      await interaction.reply({ content: '⚠️ Locking and closing channel directory container...' });
       return setTimeout(() => interaction.channel.delete().catch(() => {}), 3000);
     }
 
@@ -174,8 +188,8 @@ module.exports = {
     if (interaction.customId.startsWith('complete_mm_')) {
       const middlemanId = interaction.customId.split('complete_mm_')[1];
 
-      if (interaction.user.id !== middlemanId) {
-        return interaction.reply({ content: '❌ Access Denied: Only the assigned operator can close this operation.', ephemeral: true });
+      if (interaction.user.id !== middlemanId && !interaction.member.permissions.has(PermissionFlagsBits.Administrator)) {
+        return interaction.reply({ content: '❌ Access Denied: Only the assigned operator or admin can close this operation.', ephemeral: true });
       }
 
       await interaction.deferUpdate();
