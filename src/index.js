@@ -30,15 +30,16 @@ const client = new Client({
 });
 
 // --- CENTRAL HOOK MODULAR OBJECT IMPORTS ---
-const searchCommand = require('./search.js');
-const profileCommand = require('./profile.js');
-const vouchModule = require('./vouch.js');
-const scamModule = require('./scam.js');
-const taxModule = require('./tax.js');
-const monitorModule = require('./monitor.js');
-const mmStatusModule = require('./mmstatus.js');
-const ticketSystemModule = require('./ticketsystem.js');
-const ticketLegacy = require('./ticket.js');
+const searchCommand      = require('./commands/search.js');
+const profileCommand     = require('./commands/profile.js');
+const taxModule          = require('./commands/tax.js');
+const mmStatusModule     = require('./commands/mmstatus.js');
+const ticketSystemModule = require('./commands/ticketsystem.js');
+const ticketLegacy       = require('./commands/ticket.js');
+
+const vouchModule        = require('./modules/vouch.js');
+const scamModule         = require('./modules/scam.js');
+const monitorModule      = require('./modules/monitor.js');
 
 // --- ABSOLUTE DISCORD GLOBAL SLASH REGISTRY LOADER ---
 const rawCommands = [
@@ -50,8 +51,15 @@ const rawCommands = [
     .addStringOption(opt => opt.setName('reason').setDescription('Reasoning behind entry').setRequired(true)),
   new SlashCommandBuilder().setName('tax').setDescription('Calculate intermediary transaction service tax fee percentages')
     .addNumberOption(opt => opt.setName('amount').setDescription('The exact deal size metric value').setRequired(true)),
-  new SlashCommandBuilder().setName('mmstatus').setDescription('Toggle availability setting parameters for your duty status'),
-  new SlashCommandBuilder().setName('ticketsystem').setDescription('Deploy the main Imperial Middleman Service Hub panel channel'),
+    
+    // --- MMSTATUS WITH CHOICE DROPDOWNS INTEGRATED HERE ---
+  new SlashCommandBuilder().setName('mmstatus').setDescription('Toggle availability setting parameters for your duty status')
+    .addStringOption(opt => opt.setName('status').setDescription('Select your live availability status').setRequired(true)
+      .addChoices(
+        { name: '🟢 Available / Active', value: 'active' },
+        { name: '🔴 Unavailable / Away', value: 'away' }
+      )),
+  new SlashCommandBuilder().setName('ticketpanel').setDescription('Deploy the main Imperial Middleman Service Hub panel channel'),
   profileCommand?.data,
   searchCommand?.data
 ];
@@ -64,7 +72,7 @@ client.once('ready', async () => {
   
   // Load Leaderboard Module Engine
   try {
-    const leaderboardEngine = require('./leaderboard.js');
+    const leaderboardEngine = require('./modules/leaderboard.js');
     leaderboardEngine(client);
   } catch(err) {
     console.error("Leaderboard engine loading error: ", err);
@@ -87,8 +95,8 @@ client.on('interactionCreate', async (interaction) => {
       if (commandName === 'vouch') await vouchModule.executeVouch(interaction);
       if (commandName === 'scam') await scamModule.executeScam(interaction);
       if (commandName === 'tax') await taxModule.executeTax(interaction);
-      if (commandName === 'mmstatus') await mmStatusModule.executeStatus(interaction);
-      if (commandName === 'ticketsystem') await ticketSystemModule.executeCommand(interaction);
+      if (commandName === 'mmstatus') await mmStatusModule.execute(interaction);
+      if (commandName === 'ticketpanel') await ticketSystemModule.executeCommand(interaction);
       if (commandName === 'profile') await profileCommand.executeProfile(interaction);
       if (commandName === 'search') await searchCommand.executeSearch(interaction);
     } catch (err) {
