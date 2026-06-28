@@ -262,7 +262,7 @@ client.on('ready', () => {
 
 // --- AUTOMATED ENGINE BOOT INITIALIZER ---
 if (!process.env.TOKEN) {
-  console.error("❌ CRITICAL ERROR: TOKEN is missing from your configuration parameters!");
+  console.error("❌ CRITICAL ERROR: TOKEN is missing from your environment parameters configuration settings!");
 } else {
   client.login(process.env.TOKEN).catch(err => {
     console.error("❌ Failed logging client configuration session node entry:", err);
