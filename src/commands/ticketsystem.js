@@ -37,7 +37,11 @@ module.exports = {
   },
 
   async handleInteraction(interaction) {
-    const OFFICIAL_MM_ROLE_ID = '1326445582310113292';
+    const OFFICIAL_MM_ROLE_ID = '1520310648582443089';
+    const OFFICIAL_MM_ROLE_ID = '1520310652021899415';
+    const OFFICIAL_MM_ROLE_ID = '1414079432741617724';
+    const OFFICIAL_MM_ROLE_ID = '1414079646256857128';
+    const OFFICIAL_MM_ROLE_ID = '1421722522851868827';
 
     // --- 1. HANDLE TIER MODAL CREATION POPUPS ---
     if (interaction.customId === 'open_paid_ticket' || interaction.customId === 'open_free_ticket') {
