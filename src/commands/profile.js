@@ -21,7 +21,6 @@ module.exports = {
     const userId = targetUser.id;
     const ALLOWED_CHANNEL = '1520312703472631838';
     
-    // Modern flag system replaces the deprecated ephemeral option
     if (interaction.channelId !== ALLOWED_CHANNEL) {
       return interaction.reply({ content: `❌ This command can only be used in <#${ALLOWED_CHANNEL}>.`, flags: MessageFlags.Ephemeral });
     }
@@ -93,15 +92,26 @@ module.exports = {
     const isBot = targetUser.bot;
 
     if (member) {
-      if (member.permissions.has('Administrator')) {
+      // 🟢 PRIORITY 1: Imperial Highness 「 👑 」
+      if (member.roles.cache.has('1421722522851868827')) {
+        staffBadgeValue = '👑 **Imperial Highness** | Divine Crown Ruler';
+        cardTitlePrefix = '👑 Imperial Royal Sovereign Matrix File';
+        embedColor = '#ff007f'; // Radiant pink/ruby aesthetic
+      } 
+      // PRIORITY 2: Server Administrators / High Chancellors
+      else if (member.permissions.has('Administrator') || member.roles.cache.has('1414079646256857128')) {
         staffBadgeValue = '💎 **High Chancellor** | Server Overseer Operations';
         cardTitlePrefix = '🏛️ Imperial Administrative Matrix File';
         embedColor = '#a04be0'; 
-      } else if (member.roles.cache.has('1414079432741617724')) {
+      } 
+      // PRIORITY 3: Lord Commander (Moderators)
+      else if (member.roles.cache.has('1414079432741617724')) {
         staffBadgeValue = '🛡️ **Lord Commander** | Security Division Force';
         cardTitlePrefix = '⚔️ Staff Guard Operational Profile';
         embedColor = '#e67e22';
-      } else if (member.roles.cache.has('1520310648582443089')) {
+      } 
+      // PRIORITY 4: Vanguard Lords (Middlemen)
+      else if (member.roles.cache.has('1520310648582443089')) {
         staffBadgeValue = '🔱 **Vanguard Lord** | Certified Middleman Operator';
         cardTitlePrefix = '📜 Imperial Certified Middleman Ledger';
       }
@@ -109,7 +119,7 @@ module.exports = {
 
     // Process Duty Status Metrics Safely
     let statusQuote = '';
-    if (member && (member.roles.cache.has('1520310648582443089') || member.permissions.has('Administrator'))) {
+    if (member && (member.roles.cache.has('1520310648582443089') || member.permissions.has('Administrator') || member.roles.cache.has('1421722522851868827'))) {
       const isActive = dutyData.active && dutyData.active.includes(userId);
       statusQuote = isActive ? '🟢 Online & Accepting Middleman Trades' : '🔴 On Break / Currently Unavailable';
     }
@@ -146,7 +156,6 @@ module.exports = {
       );
     }
 
-    // 🟢 FIXED LINE: Replaced interaction.reply with interaction.editReply to resolve double-reply crashes
     return await interaction.editReply({ embeds: [profileEmbed] });
   }
 };
