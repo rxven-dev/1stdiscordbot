@@ -18,17 +18,6 @@ const { Client, GatewayIntentBits, Routes, REST, PermissionFlagsBits, EmbedBuild
 const fs = require('fs');
 const path = require('path');
 
-// --- CENTRAL HOOK MODULAR OBJECT IMPORTS ---
-const searchCommand = require('./search.js');
-const profileCommand = require('./profile.js');
-const vouchModule = require('./vouch.js');
-const scamModule = require('./scam.js');
-const taxModule = require('./tax.js');
-const monitorModule = require('./monitor.js');
-const mmStatusModule = require('./mmstatus.js');
-const ticketSystemModule = require('./ticketsystem.js');
-const ticketLegacy = require('./ticket.js');
-
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -39,6 +28,17 @@ const client = new Client({
   ],
   partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
+
+// --- CENTRAL HOOK MODULAR OBJECT IMPORTS ---
+const searchCommand = require('./search.js');
+const profileCommand = require('./profile.js');
+const vouchModule = require('./vouch.js');
+const scamModule = require('./scam.js');
+const taxModule = require('./tax.js');
+const monitorModule = require('./monitor.js');
+const mmStatusModule = require('./mmstatus.js');
+const ticketSystemModule = require('./ticketsystem.js');
+const ticketLegacy = require('./ticket.js');
 
 // --- ABSOLUTE DISCORD GLOBAL SLASH REGISTRY LOADER ---
 const commands = [
@@ -240,7 +240,7 @@ client.on('messageCreate', async (message) => {
   }
 });
 
-// --- RESTORED AUTOMATED MODULE RUNNER ENGINE LINK ---
+// --- AUTOMATED MODULE RUNNER ENGINE LINK ---
 function runModules() {
   try {
     if (monitorModule && typeof monitorModule.init === 'function') {
