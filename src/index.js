@@ -240,4 +240,23 @@ client.on('messageCreate', async (message) => {
   }
 });
 
+// --- RESTORED AUTOMATED MODULE RUNNER ENGINE LINK ---
+function runModules() {
+  try {
+    if (monitorModule && typeof monitorModule.init === 'function') {
+      monitorModule.init(client);
+      console.log('📡 System Monitor module tasks initialized successfully.');
+    }
+  } catch (err) {
+    console.error('❌ Failed initializing runModules tracking loop:', err);
+  }
+}
+
+// Fire automated internal background task sequences upon active client sync
+client.on('ready', () => {
+  runModules();
+});
+
+client.login(process.env.DISCORD_TOKEN);
+
 module.exports = { client };
