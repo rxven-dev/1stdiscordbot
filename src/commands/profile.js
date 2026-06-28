@@ -32,97 +32,100 @@ module.exports = {
     const targetUser = interaction.options.getUser('user') || interaction.user;
     const userId = targetUser.id;
 
-    // Direct Synchronized Live Pool Extraction
-    let vouchData = {};
-    let scamData = {};
-    let dutyData = {};
+    // Load active JSON files into memory structures
+    let vouchesData = {};
+    let scamsData = {};
+    let dutyData = { active: [], away: [] };
 
     try {
-      vouchData = JSON.parse(fs.readFileSync(vouchFilePath, 'utf8'));
-      scamData = JSON.parse(fs.readFileSync(scamFilePath, 'utf8'));
+      vouchesData = JSON.parse(fs.readFileSync(vouchFilePath, 'utf8'));
+    } catch (e) { console.error("Vouch parse exception:", e); }
+
+    try {
+      scamsData = JSON.parse(fs.readFileSync(scamFilePath, 'utf8'));
+    } catch (e) { console.error("Scam parse exception:", e); }
+
+    try {
       dutyData = JSON.parse(fs.readFileSync(dutyFilePath, 'utf8'));
-    } catch (parseErr) {
-      console.error('Error fetching internal file links matrix:', parseErr);
+    } catch (e) { console.error("Duty status parse exception:", e); }
+
+    // Read unique counts or fallback safely to 0
+    const totalVouches = vouchesData[userId] || 0;
+    const verifiedScams = (scamsData[userId] && scamsData[userId].convictions) || 0;
+
+    // Locate matching real-time duty indicators
+    let rawDuty = 'Unavailable';
+    if (dutyData.active && dutyData.active.includes(userId)) {
+      rawDuty = 'Active';
+    } else if (dutyData.away && dutyData.away.includes(userId)) {
+      rawDuty = 'Away';
     }
 
-    const totalVouches = vouchData[userId] || 0;
-    const verifiedScams = scamData[userId] || 0;
-    const rawDuty = dutyData[userId] || 'Offline';
-
-    // Staff identification block setups using your exact role IDs
-    const guildMember = await interaction.guild.members.fetch(userId).catch(() => null);
-    let staffBadgeValue = '';
-    
-    if (guildMember) {
-      if (guildMember.id === interaction.guild.ownerId) {
-        staffBadgeValue = '👑 **Founding Emperor**';
-      } else if (guildMember.roles.cache.has('1414079646256857128')) {
-        staffBadgeValue = '🏦 **High Chancellor** (Admin)';
-      } else if (guildMember.roles.cache.has('1414079432741617724')) {
-        staffBadgeValue = '🛡️ **Lord Commander** (Moderator)';
-      } else if (guildMember.roles.cache.has('1326445582310113292')) {
-        staffBadgeValue = '⚔️ **Imperial Guard Middleman**';
-      }
-    }
-
-    // Rank Progression Matrix Logic aligned to your new role system
+    // ==========================================
+    // 🏛️ AUTOMATIC DYNAMIC ROLE SCANNER ENGINE
+    // ==========================================
     let rank = 'Sworn Citizen「 📜 」';
     let nextMilestone = 'Vanguard Squire (10 Vouches)';
     let requiredForNext = 10;
     let baseForCurrent = 0;
 
-    if (totalVouches >= 150) {
-      rank = 'Immortal Legend 「 👑 」';
-      nextMilestone = '✨ Ultimate Mythic Monarch status accomplished!';
-      requiredForNext = totalVouches;
-      baseForCurrent = 150;
-    } else if (totalVouches >= 100) {
-      rank = 'Vanguard Lord 「 🔱 」';
-      nextMilestone = 'Immortal Legend (150 Vouches)';
-      requiredForNext = 150;
-      baseForCurrent = 100;
-    } else if (totalVouches >= 75) {
-      rank = 'Grand Paladin「 ⚔️ 」';
-      nextMilestone = 'Vanguard Lord (100 Vouches)';
-      requiredForNext = 100;
-      baseForCurrent = 75;
-    } else if (totalVouches >= 50) {
-      rank = 'Sovereign Guard 「 🛡️ 」';
-      nextMilestone = 'Grand Paladin (75 Vouches)';
-      requiredForNext = 75;
-      baseForCurrent = 50;
-    } else if (totalVouches >= 25) {
-      rank = 'High Banneret 「 🦅 」';
-      nextMilestone = 'Sovereign Guard (50 Vouches)';
-      requiredForNext = 50;
-      baseForCurrent = 25;
-    } else if (totalVouches >= 10) {
-      rank = 'Vanguard Squire 「 🛡️ 」';
-      nextMilestone = 'High Banneret (25 Vouches)';
-      requiredForNext = 25;
-      baseForCurrent = 10;
-    }
+    // Staff Badge Dynamic Scanner
+    let staffBadgeValue = '';
+    const guildMember = await interaction.guild.members.fetch(userId).catch(() => null);
 
-    if (totalVouches >= 100) {
-      rank = '💎 Vanguard Lord';
-      nextMilestone = '👑 Ultimate Mythic Monarch status accomplished!';
-      requiredForNext = totalVouches;
-      baseForCurrent = 100;
-    } else if (totalVouches >= 50) {
-      rank = '🔮 Master Spellweaver';
-      nextMilestone = '💎 Vanguard Lord (100 Vouches)';
-      requiredForNext = 100;
-      baseForCurrent = 50;
-    } else if (totalVouches >= 25) {
-      rank = '🎖️ Elite Commander';
-      nextMilestone = '🔮 Master Spellweaver (50 Vouches)';
-      requiredForNext = 50;
-      baseForCurrent = 25;
-    } else if (totalVouches >= 10) {
-      rank = '📜 Initiate Merchant';
-      nextMilestone = '🎖️ Elite Commander (25 Vouches)';
-      requiredForNext = 25;
-      baseForCurrent = 10;
+    if (guildMember) {
+      // 1. Check Owner Status Automatically
+      if (guildMember.id === interaction.guild.ownerId) {
+        staffBadgeValue = '👑 **Founding Emperor**';
+      }
+
+      // 2. Scan User Roles Dynamically by Name
+      const userRoleNames = guildMember.roles.cache.map(r => r.name.toLowerCase());
+
+      // Set Staff Badges based on Role Names
+      if (userRoleNames.some(name => name.includes('chancellor'))) {
+        staffBadgeValue = '🏦 **High Chancellor** (Admin)';
+      } else if (userRoleNames.some(name => name.includes('commander'))) {
+        staffBadgeValue = '🛡️ **Lord Commander** (Moderator)';
+      }
+
+      // Set Rank Roster dynamically based on the highest tier role found
+      if (userRoleNames.some(name => name.includes('immortal legend'))) {
+        rank = 'Immortal Legend 「 👑 」';
+        nextMilestone = '✨ Ultimate Mythic Monarch status accomplished!';
+        requiredForNext = totalVouches;
+        baseForCurrent = 150;
+      } else if (userRoleNames.some(name => name.includes('vanguard lord'))) {
+        rank = 'Vanguard Lord 「 🔱 」';
+        nextMilestone = 'Immortal Legend (150 Vouches)';
+        requiredForNext = 150;
+        baseForCurrent = 100;
+      } else if (userRoleNames.some(name => name.includes('grand paladin'))) {
+        rank = 'Grand Paladin「 ⚔️ 」';
+        nextMilestone = 'Vanguard Lord (100 Vouches)';
+        requiredForNext = 100;
+        baseForCurrent = 75;
+      } else if (userRoleNames.some(name => name.includes('sovereign guard'))) {
+        rank = 'Sovereign Guard 「 🛡️ 」';
+        nextMilestone = 'Grand Paladin (75 Vouches)';
+        requiredForNext = 75;
+        baseForCurrent = 50;
+      } else if (userRoleNames.some(name => name.includes('high banneret'))) {
+        rank = 'High Banneret 「 🦅 」';
+        nextMilestone = 'Sovereign Guard (50 Vouches)';
+        requiredForNext = 50;
+        baseForCurrent = 25;
+      } else if (userRoleNames.some(name => name.includes('vanguard squire'))) {
+        rank = 'Vanguard Squire 「 🛡️ 」';
+        nextMilestone = 'High Banneret (25 Vouches)';
+        requiredForNext = 25;
+        baseForCurrent = 10;
+      } else if (userRoleNames.some(name => name.includes('sworn citizen'))) {
+        rank = 'Sworn Citizen「 📜 」';
+        nextMilestone = 'Vanguard Squire (10 Vouches)';
+        requiredForNext = 10;
+        baseForCurrent = 0;
+      }
     }
 
     // Progress Bar Calculator
@@ -136,12 +139,21 @@ module.exports = {
       progressString = '🟩'.repeat(filledBlocks) + '⬛'.repeat(emptyBlocks) + ` (${totalVouches}/${requiredForNext})`;
     }
 
-    // Duty Metric Output formatting
+    // Dynamic Middleman Authorization Check (No manual IDs required!)
     let mmStatus = '❌ Unverified Citizen';
-    if (guildMember && (guildMember.roles.cache.has('1326445582310113292') || guildMember.roles.cache.has('1414079432741617724') || guildMember.roles.cache.has('1414079646256857128'))) {
+    const isStaff = guildMember && (
+      guildMember.id === interaction.guild.ownerId ||
+      guildMember.roles.cache.some(r => {
+        const n = r.name.toLowerCase();
+        return n.includes('chancellor') || n.includes('commander') || n.includes('legend') || n.includes('vanguard lord');
+      })
+    );
+
+    if (isStaff) {
       mmStatus = rawDuty === 'Active' ? '🟢 Active & Accepting Trades' : '🔴 On Break / Unavailable';
     }
 
+    // Generate Profile Embed Component Structure Layout
     const profileEmbed = new EmbedBuilder()
       .setTitle(`🏰 Imperial Archive Registry: ${targetUser.username}`)
       .setColor('#a04be0')
@@ -171,9 +183,9 @@ module.exports = {
       }
     } catch (networkError) {
       try {
-        return await interaction.followUp({ embeds: [profileEmbed] });
+        return await interaction.followUp({ embeds: [profileEmbed], ephemeral: true });
       } catch (fError) {
-        console.error('🛡️ Failed network logging pipeline resolution:', fError);
+        console.error('CRITICAL: Discord network pipe collapsed during profiling action rendering:', fError);
       }
     }
   }
