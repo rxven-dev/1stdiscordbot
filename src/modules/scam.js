@@ -11,6 +11,10 @@ module.exports = {
     const targetUser = interaction.options.getUser('user');
     const reason = interaction.options.getString('reason');
     const proofAttachment = interaction.options.getAttachment('proof');
+    const ALLOWED_CHANNEL = '1414094908897099886';
+    if (interaction.channelId !== ALLOWED_CHANNEL) {
+      return interaction.reply({ content: `❌ This command can only be used in <#${ALLOWED_CHANNEL}>.`, ephemeral: true });
+    }
 
     // Directed safely straight to your dedicated #scam-logs room
     const staffLogChannelId = '1520328050758123581'; 

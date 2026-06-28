@@ -16,6 +16,10 @@ module.exports = {
       '1414079432741617724', // Lord Commander 「 🛡️ 」(Moderator)
       '1414079646256857128'  // High Chancellor 「 🏦 」(Admin)
     ];
+    const ALLOWED_CHANNEL = '1520312877343445114';
+    if (interaction.channelId !== ALLOWED_CHANNEL) {
+      return interaction.reply({ content: `❌ This command can only be used in <#${ALLOWED_CHANNEL}>.`, ephemeral: true });
+    }
 
     const CHANNEL_ID = '1520312877343445114';
 

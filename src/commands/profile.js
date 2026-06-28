@@ -19,6 +19,11 @@ module.exports = {
   async executeProfile(interaction) {
     const targetUser = interaction.options.getUser('user') || interaction.user;
     const userId = targetUser.id;
+    const ALLOWED_CHANNEL = '1520312703472631838';
+    if (interaction.channelId !== ALLOWED_CHANNEL) {
+      return interaction.reply({ content: `❌ This command can only be used in <#${ALLOWED_CHANNEL}>.`, ephemeral: true });
+    }
+    await interaction.deferReply();
 
     // Load database files safely
     let vouchesData = {}; let scamsData = {}; let dutyData = { active: [], away: [] };

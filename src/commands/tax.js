@@ -22,6 +22,10 @@ module.exports = {
         )),
 
   async executeTax(interaction) {
+    const ALLOWED_CHANNEL = '1520312909488459838';
+    if (interaction.channelId !== ALLOWED_CHANNEL) {
+      return interaction.reply({ content: `❌ This command can only be used in <#${ALLOWED_CHANNEL}>.`, ephemeral: true });
+    }
     await interaction.deferReply();
 
     const initialAmount = interaction.options.getNumber('amount');
