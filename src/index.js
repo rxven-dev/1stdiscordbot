@@ -34,12 +34,15 @@ const searchCommand      = require('./commands/search.js');
 const profileCommand     = require('./commands/profile.js');
 const taxModule          = require('./commands/tax.js');
 const mmStatusModule     = require('./commands/mmstatus.js');
-const ticketSystemModule = require('./commands/ticketsystem.js');
-const ticketLegacy       = require('./commands/ticket.js');
+const ticketSystemModule = require('./commands/ticketSystem.js');
 
 const vouchModule        = require('./modules/vouch.js');
 const scamModule         = require('./modules/scam.js');
-const monitorModule      = require('./modules/monitor.js');
+const monitorModule      = require('./modules/monitor.js'); // Keeping only ONE clear declaration here
+
+// Initialize cleaner/moderation system hooks
+const cleanerSystem      = require('./cleaner.js');
+cleanerSystem(client);
 
 // --- ABSOLUTE DISCORD GLOBAL SLASH REGISTRY LOADER ---
 const rawCommands = [
@@ -50,7 +53,7 @@ const rawCommands = [
     .addUserOption(opt => opt.setName('user').setDescription('The target offender user').setRequired(true))
     .addStringOption(opt => opt.setName('reason').setDescription('Reasoning behind entry').setRequired(true)),
   
-  // 🟢 Fixed Tax Option Reference
+  // Dynamic application command configurations loaded directly from module setups
   taxModule?.data,
     
   // --- MMSTATUS WITH CHOICE DROPDOWNS INTEGRATED HERE ---
@@ -62,7 +65,7 @@ const rawCommands = [
       )),
   new SlashCommandBuilder().setName('ticketpanel').setDescription('Deploy the main Imperial Middleman Service Hub panel channel'),
   
-  // 🟢 ADDED: Registers /checkvouches directly onto your server listing
+  // Registers /checkvouches directly onto your live global server list
   new SlashCommandBuilder().setName('checkvouches').setDescription('Imperial Staff audit terminal to check reputation profiles')
     .addUserOption(opt => opt.setName('target').setDescription('The target member to audit background ledger items').setRequired(false)),
 
@@ -70,177 +73,88 @@ const rawCommands = [
   searchCommand?.data
 ];
 
-// Clean map filtering out any undefined module components dynamically
-const commands = rawCommands.filter(cmd => cmd !== undefined && cmd !== null).map(cmd => cmd.toJSON());
+// --- BACKEND REST SLASH REGISTRATION COMPILER FLOW ---
+async function synchronizeSlashCommands() {
+  try {
+    console.log('🔄 Initiating global application slash routing nodes deployment...');
+    const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+    
+    // Compiles valid clean JSON properties only
+    const cleanJSONData = rawCommands.map(cmd => {
+      if (cmd && typeof cmd.toJSON === 'function') return cmd.toJSON();
+      return cmd; 
+    });
+
+    await rest.put(
+      Routes.applicationCommands(process.env.CLIENT_ID),
+      { body: cleanJSONData }
+    );
+    console.log('✅ Synchronized global slash routing nodes completely.');
+  } catch (err) {
+    console.error('❌ Critical deployment registry failure:', err);
+  }
+}
 
 client.once('ready', async () => {
-  console.log(`🚀 logged in safely as: ${client.user.tag}`);
-  
-  // Load Leaderboard Module Engine
-  try {
-    const leaderboardEngine = require('./modules/leaderboard.js');
-    leaderboardEngine(client);
-  } catch(err) {
-    console.error("Leaderboard engine loading error: ", err);
-  }
-
-  const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
-  try {
-    await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
-    console.log('✅ Synchronized global slash routing nodes completely.');
-  } catch (error) {
-    console.error('❌ Failed slash command population:', error);
-  }
+  console.log(`✅ Connection secure. Signed in globally as: ${client.user.tag}`);
+  await synchronizeSlashCommands();
 });
 
-// --- GLOBAL EVENT ROUTER INTERACTION ROUTING MATRIX ---
+// --- CENTRALIZED ENGINE INTERACTION INTERCEPTOR ---
 client.on('interactionCreate', async (interaction) => {
-  if (interaction.isChatInputCommand()) {
-    const { commandName } = interaction;
-    try {
-      if (commandName === 'vouch') await vouchModule.executeVouch(interaction);
-      if (commandName === 'scam') await scamModule.executeScam(interaction);
+  try {
+    // 1. ROUTE SLASH COMMAND INTERACTIONS
+    if (interaction.isChatInputCommand()) {
+      const { commandName } = interaction;
+
       if (commandName === 'tax') await taxModule.executeTax(interaction);
       if (commandName === 'mmstatus') await mmStatusModule.execute(interaction);
       if (commandName === 'checkvouches') await monitorModule.executeMonitor(interaction);
       if (commandName === 'ticketpanel') await ticketSystemModule.executeCommand(interaction);
       if (commandName === 'profile') await profileCommand.executeProfile(interaction);
       if (commandName === 'search') await searchCommand.executeSearch(interaction);
-    } catch (err) {
-      console.error(`Error processing command /${commandName}:`, err);
+      return;
     }
-    return;
-  }
 
-  if (interaction.isButton()) {
-    const { customId } = interaction;
-
-    if (
-      customId === 'open_paid_ticket' || 
-      customId === 'open_free_ticket' || 
-      customId === 'claim_mm_ticket' || 
-      customId === 'close_mm_ticket' || 
-      customId.startsWith('complete_mm_') || 
-      customId.startsWith('vouch_btn_')
-    ) {
-      try {
+    // 2. ROUTE BUTTON & MODAL COMPONENT INTERACTIONS (Fixes your ticket system!)
+    if (interaction.isButton() || interaction.isModalSubmit()) {
+      if (ticketSystemModule && typeof ticketSystemModule.handleInteraction === 'function') {
         await ticketSystemModule.handleInteraction(interaction);
-      } catch (err) {
-        console.error('Error within Ticket System Interaction module forwarding:', err);
       }
       return;
     }
 
-    if (customId.startsWith('unmute_')) {
-      if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) { 
-        return await interaction.reply({ content: '❌ You do not have permission to unmute users.', ephemeral: true }); 
-      }
-      const targetUserId = customId.split('_')[1];
-      try {
-        const targetMember = await interaction.guild.members.fetch(targetUserId);
-        await targetMember.timeout(null, `Manually unmuted via log dashboard button by ${interaction.user.tag}`);
-        const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0]).setColor('#a04be0').addFields({ name: '🔊 Action Status Updates', value: `✅ User manually unmuted by ${interaction.user}` });
-        await interaction.update({ embeds: [updatedEmbed], components: [] });
-      } catch (error) { 
-        console.error('❌ Failed to execute button unmute operation:', error); 
-      }
-      return;
-    }
-  }
-
-  if (interaction.isModalSubmit()) {
-    const { customId } = interaction;
+  } catch (error) {
+    console.error('❌ Error processing structural connection interaction node:', error);
     
-    if (customId === 'modal_paid_ticket' || customId === 'modal_free_ticket' || customId === 'mm_form_paid' || customId === 'mm_form_donate') {
-      try {
-        await ticketSystemModule.handleInteraction(interaction);
-      } catch (e) {
-        console.error(e);
-      }
-      return;
-    }
-
-    if (customId === 'scam_report_modal') { 
-      try { 
-        await scamModule.handleScamModal(interaction); 
-      } catch (e) { 
-        console.error(e); 
-      } 
-      return; 
+    if (!interaction.replied && !interaction.deferred) {
+      await interaction.reply({ content: '❌ An internal framework routing failure occurred processing this operation.', ephemeral: true }).catch(() => {});
     }
   }
 });
 
-// --- AUTOMATIC COMPREHENSIVE TEXT ANALYSIS SECURITY RADAR ENGINE ---
+// --- IMPERIAL RADAR AUTOMATED DEFENSE CHAT INTERCEPTOR ---
 client.on('messageCreate', async (message) => {
-  if (message.author.bot || !message.guild) return;
+  if (message.author.bot) return;
 
-  const LOG_CHANNEL_ID = '1326444654924206121';
-  const inputLower = message.content.toLowerCase();
+  // Basic security filtering rules
+  const forbiddenLinks = ['discord.gg/', 'discord.com/invite/'];
+  const hasInviteLink = forbiddenLinks.some(link => message.content.toLowerCase().includes(link));
 
-  if (inputLower.includes('discord.gg/') || inputLower.includes('discord.com/invite/')) {
-    if (message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
-
+  if (hasInviteLink && !message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
     try {
       await message.delete();
-      await message.member.timeout(600000, 'Posting unauthorized background discord invitations links.');
-      
-      const alertPrivate = new EmbedBuilder()
-        .setTitle('⚠️ Security Infraction Notice')
-        .setColor('#e74c3c')
-        .setDescription('Your profile account has been muted for **10 minutes** for streaming promotional invitations anchors.');
-      await message.author.send({ embeds: [alertPrivate] }).catch(() => null);
+      const warningMessage = await message.channel.send(`⚠️ ${message.author}, advertisement links are blocked by order of the Imperial Security Network.`);
+      setTimeout(() => warningMessage.delete().catch(() => {}), 6000);
 
-      const logChan = await message.guild.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
-      if (logChan) {
-        const logEmbed = new EmbedBuilder()
-          .setTitle('🛡️ Automated Firewall Block')
-          .setColor('#e74c3c')
-          .addFields(
-            { name: '👤 Offender User', value: `${message.author} (${message.author.id})`, inline: true },
-            { name: '⚖️ Action Enforced', value: 'Content Purge & 10m Mute', inline: true },
-            { name: '📝 Intercepted Value', value: `\`\`\`${message.content}\`\`\`` }
-          );
-        const unmuteRow = new ActionRowBuilder().addComponents(
-          new ButtonBuilder().setCustomId(`unmute_${message.author.id}`).setLabel('Revoke Mute Punishment').setStyle(ButtonStyle.Danger)
-        );
-        await logChan.send({ embeds: [logEmbed], components: [unmuteRow] });
-      }
-    } catch (e) {
-      console.error('Firewall engine exception:', e);
-    }
-    return;
-  }
-
-  const prohibitedPhrases = [
-    'free nitro', 'nitro gift', 'steam-nitro', 'discorcl', 'dlscord', 
-    'gift-nitro', 'promonitro', 'cliscord', 'boost-nitro'
-  ];
-
-  const triggerFound = prohibitedPhrases.some(phrase => inputLower.includes(phrase));
-  if (triggerFound) {
-    if (message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
-
-    try {
-      await message.delete();
-      await message.member.timeout(3600000, 'Phishing scam link / compromise signature detection.');
-
-      const userNotice = new EmbedBuilder()
-        .setTitle('🛑 Critical Security Alert')
-        .setColor('#ef4444')
-        .setDescription('Your profile has been locked under a **1-hour quarantine** due to malicious link structural patterns matching blacklisted servers.');
-      await message.author.send({ embeds: [userNotice] }).catch(() => null);
-
-      const securityLogs = await message.guild.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
+      const securityLogs = await client.channels.fetch('1520312658828202026').catch(() => null);
       if (securityLogs) {
         const defenseEmbed = new EmbedBuilder()
-          .setTitle('🚨 Malicious Phishing Signature Isolated')
-          .setColor('#ef4444')
-          .addFields(
-            { name: '👤 Suspect Account', value: `${message.author} (${message.author.id})`, inline: true },
-            { name: '🛡️ Quarantine Timeline', value: '1 Hour System Suspension', inline: true },
-            { name: '☣️ Raw Output Log', value: `\`\`\`${message.content}\`\`\`` }
-          );
+          .setTitle('🛡️ Anti-Ad Radar Tripped')
+          .setColor('#ff3333')
+          .setDescription(`**Offender:** ${message.author} (\`${message.author.id}\`)\n**Location:** ${message.channel}\n\n**Interception Payload:**\n\`\`\`${message.content}\`\`\``)
+          .setTimestamp();
+
         const actionRow = new ActionRowBuilder().addComponents(
           new ButtonBuilder().setCustomId(`unmute_${message.author.id}`).setLabel('Pardon Account Security Lockout').setStyle(ButtonStyle.Success)
         );
@@ -269,7 +183,6 @@ client.on('ready', () => {
   runModules();
 });
 
-
 // --- DIAGNOSTIC TEST MODE ---
 console.log("🔍 DIAGNOSTIC: process.env.TOKEN exists?", !!process.env.TOKEN);
 if (process.env.TOKEN) {
@@ -279,11 +192,9 @@ if (process.env.TOKEN) {
 
 // --- AUTOMATED ENGINE BOOT INITIALIZER ---
 if (!process.env.TOKEN) {
-  console.error("❌ CRITICAL ERROR: TOKEN is missing from your environment parameters configuration settings!");
+  console.error("❌ CRITICAL ERROR: process.env.TOKEN is completely missing from configuration files.");
 } else {
   client.login(process.env.TOKEN).catch(err => {
-    console.error("❌ Failed logging client configuration session node entry:", err);
+    console.error("❌ Failed logging bot gateway node into Discord APIs:", err);
   });
 }
-
-module.exports = { client };
