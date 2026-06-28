@@ -22,7 +22,7 @@ module.exports = {
           { name: 'A$ Australian Dollar (AUD)', value: 'AUD' }
         )),
 
-  async execute(interaction) {
+  async executeTax(interaction) {
     const CHANNEL_ID = '1520312909488459838';
 
     if (interaction.channelId !== CHANNEL_ID) {
