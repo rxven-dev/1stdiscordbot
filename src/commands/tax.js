@@ -1,7 +1,6 @@
 const { EmbedBuilder, SlashCommandBuilder } = require('discord.js');
 
 module.exports = {
-  // 🎯 Custom Slash Command with 2 parameters: amount & currency
   data: new SlashCommandBuilder()
     .setName('tax')
     .setDescription('Calculate standard 5% Imperial fee with automatic live PHP exchange conversions')
@@ -22,15 +21,13 @@ module.exports = {
           { name: 'A$ Australian Dollar (AUD)', value: 'AUD' }
         )),
 
-  // 🛠️ Changed function name to executeTax to perfectly fix your index.js crash error!
   async executeTax(interaction) {
     await interaction.deferReply();
 
-    // Pulls your 2 options cleanly
     const initialAmount = interaction.options.getNumber('amount');
     const currencyType = interaction.options.getString('currency');
 
-    // 5% fee calculation matrix
+    // 5% standard conversion processing
     const handlingFee = Math.round((initialAmount * 0.05) * 100) / 100;
     const totalToPay = Math.round((initialAmount + handlingFee) * 100) / 100;
 
@@ -43,32 +40,42 @@ module.exports = {
       { name: '💳 Total you need to pay', value: `\`${symbol}${totalToPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\` ${currencyType}`, inline: true }
     ];
 
-    // AUTOMATIC CONVERSION ENGINE: If they chose anything else than PHP, convert it automatically
-    if (currencyType !== 'PHP') {
-      const apiKey = process.env.EXCHANGE_RATE_API_KEY || 'YOUR_FREE_API_KEY'; 
-      try {
-        const url = `https://v6.exchangerate-api.com/v6/${apiKey}/latest/${currencyType}`;
-        const response = await fetch(url);
-        
-        if (response.ok) {
-          const data = await response.json();
-          const phpRate = data.conversion_rates ? data.conversion_rates.PHP : null;
+    // If currency is already PHP, we don't need an API call—just display it directly!
+    if (currencyType === 'PHP') {
+      embedFields.push(
+        { name: '───', value: '💱 **Local PHP Ledger Metrics** ───', inline: false },
+        { name: '🇵🇭 Trade Value (PHP)', value: `\`₱${initialAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\``, inline: true },
+        { name: '🇵🇭 Fee Value (PHP)', value: `\`₱${handlingFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\``, inline: true },
+        { name: '🇵🇭 Total Due (PHP)', value: `\`₱${totalToPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\``, inline: true }
+      );
+    } else {
+      // If it's a foreign currency, call the API conversion rates smoothly
+      const apiKey = process.env.EXCHANGE_RATE_API_KEY; 
+      if (apiKey) {
+        try {
+          const url = `https://v6.exchangerate-api.com/v6/${apiKey}/latest/${currencyType}`;
+          const response = await fetch(url);
+          
+          if (response.ok) {
+            const data = await response.json();
+            const phpRate = data.conversion_rates ? data.conversion_rates.PHP : null;
 
-          if (phpRate) {
-            const baseInPhp = initialAmount * phpRate;
-            const feeInPhp = handlingFee * phpRate;
-            const totalInPhp = totalToPay * phpRate;
+            if (phpRate) {
+              const baseInPhp = initialAmount * phpRate;
+              const feeInPhp = handlingFee * phpRate;
+              const totalInPhp = totalToPay * phpRate;
 
-            embedFields.push(
-              { name: '───', value: '💱 **Live Local PHP Exchange Equivalent** ───', inline: false },
-              { name: '🇵🇭 Trade Value (PHP)', value: `\`₱${baseInPhp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\``, inline: true },
-              { name: '🇵🇭 Fee Value (PHP)', value: `\`₱${feeInPhp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\``, inline: true },
-              { name: '🇵🇭 Total Due (PHP)', value: `\`₱${totalInPhp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\``, inline: true }
-            );
+              embedFields.push(
+                { name: '───', value: '💱 **Live Local PHP Exchange Equivalent** ───', inline: false },
+                { name: '🇵🇭 Trade Value (PHP)', value: `\`₱${baseInPhp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\``, inline: true },
+                { name: '🇵🇭 Fee Value (PHP)', value: `\`₱${feeInPhp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\``, inline: true },
+                { name: '🇵🇭 Total Due (PHP)', value: `\`₱${totalInPhp.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\``, inline: true }
+              );
+            }
           }
+        } catch (error) {
+          console.error('❌ ExchangeRate API connection error:', error.message);
         }
-      } catch (error) {
-        console.error('❌ ExchangeRate API connection error:', error.message);
       }
     }
 
