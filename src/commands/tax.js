@@ -27,7 +27,6 @@ module.exports = {
     const initialAmount = interaction.options.getNumber('amount');
     const currencyType = interaction.options.getString('currency');
 
-    // 5% standard conversion processing
     const handlingFee = Math.round((initialAmount * 0.05) * 100) / 100;
     const totalToPay = Math.round((initialAmount + handlingFee) * 100) / 100;
 
@@ -40,7 +39,6 @@ module.exports = {
       { name: '💳 Total you need to pay', value: `\`${symbol}${totalToPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\` ${currencyType}`, inline: true }
     ];
 
-    // If currency is already PHP, we don't need an API call—just display it directly!
     if (currencyType === 'PHP') {
       embedFields.push(
         { name: '───', value: '💱 **Local PHP Ledger Metrics** ───', inline: false },
@@ -49,17 +47,14 @@ module.exports = {
         { name: '🇵🇭 Total Due (PHP)', value: `\`₱${totalToPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}\``, inline: true }
       );
     } else {
-      // If it's a foreign currency, call the API conversion rates smoothly
       const apiKey = process.env.EXCHANGE_RATE_API_KEY; 
       if (apiKey) {
         try {
           const url = `https://v6.exchangerate-api.com/v6/${apiKey}/latest/${currencyType}`;
           const response = await fetch(url);
-          
           if (response.ok) {
             const data = await response.json();
             const phpRate = data.conversion_rates ? data.conversion_rates.PHP : null;
-
             if (phpRate) {
               const baseInPhp = initialAmount * phpRate;
               const feeInPhp = handlingFee * phpRate;

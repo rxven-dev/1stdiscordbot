@@ -49,10 +49,11 @@ const rawCommands = [
   new SlashCommandBuilder().setName('scam').setDescription('Log a verified scam event entry metric')
     .addUserOption(opt => opt.setName('user').setDescription('The target offender user').setRequired(true))
     .addStringOption(opt => opt.setName('reason').setDescription('Reasoning behind entry').setRequired(true)),
-  new SlashCommandBuilder().setName('tax').setDescription('Calculate intermediary transaction service tax fee percentages')
-    .addNumberOption(opt => opt.setName('amount').setDescription('The exact deal size metric value').setRequired(true)),
+  
+  // 🟢 CHANGED: Pull directly from tax.js data configuration mapping instead of hardcoding it here!
+  taxModule?.data, 
     
-    // --- MMSTATUS WITH CHOICE DROPDOWNS INTEGRATED HERE ---
+  // --- MMSTATUS WITH CHOICE DROPDOWNS INTEGRATED HERE ---
   new SlashCommandBuilder().setName('mmstatus').setDescription('Toggle availability setting parameters for your duty status')
     .addStringOption(opt => opt.setName('status').setDescription('Select your live availability status').setRequired(true)
       .addChoices(
