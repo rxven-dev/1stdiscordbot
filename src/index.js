@@ -35,290 +35,209 @@ const client = new Client({
     GatewayIntentBits.GuildMessages,
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
-    GatewayIntentBits.GuildMessageReactions,
-    GatewayIntentBits.GuildPresences // 🟢 REQUIRED INTENT TO GAIN ACCESS TO USER PRESENCE SWAP PACKETS
+    GatewayIntentBits.GuildPresences
   ],
-  partials: [
-    Partials.Message, 
-    Partials.Channel, 
-    Partials.Reaction
-  ]
+  partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
 
-// --- LIVE ROSTER COUPLING ENGINE HOOK ---
-async function updateLiveRosterPanel(discordClient) {
-  const ROSTER_CHANNEL_ID = '1520312877343445114';
-  const dataDir = fs.existsSync('/data') ? '/data' : process.cwd();
-  const STATUS_FILE = path.join(dataDir, 'mm_duty_status.json');
-  const vouchFilePath = path.join(dataDir, 'vouches.json');
-  const trackFilePath = path.join(dataDir, 'vouch_claims_tracks.json');
-  
-  try {
-    const channel = await discordClient.channels.fetch(ROSTER_CHANNEL_ID).catch(() => null);
-    if (!channel) return;
+// --- ABSOLUTE DISCORD GLOBAL SLASH REGISTRY LOADER ---
+const commands = [
+  new SlashCommandBuilder().setName('vouch').setDescription('Vouch for a trusted user after a transaction')
+    .addUserOption(opt => opt.setName('user').setDescription('The user you want to vouch for').setRequired(true))
+    .addAttachmentOption(opt => opt.setName('proof').setDescription('Provide screenshot transaction proof').setRequired(true)),
+  new SlashCommandBuilder().setName('scam').setDescription('Log a verified scam event entry metric')
+    .addUserOption(opt => opt.setName('user').setDescription('The target offender user').setRequired(true))
+    .addStringOption(opt => opt.setName('reason').setDescription('Reasoning behind entry').setRequired(true)),
+  new SlashCommandBuilder().setName('tax').setDescription('Calculate intermediary transaction service tax fee percentages')
+    .addNumberOption(opt => opt.setName('amount').setDescription('The exact deal size metric value').setRequired(true)),
+  new SlashCommandBuilder().setName('mmstatus').setDescription('Toggle availability setting parameters for your duty status'),
+  new SlashCommandBuilder().setName('ticketsystem').setDescription('Deploy the main Imperial Middleman Service Hub panel channel'),
+  profileCommand.data,
+  searchCommand.data
+].map(cmd => cmd.toJSON());
 
-    let data = fs.existsSync(STATUS_FILE) ? JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8')) : { active: [], away: [] };
-    if (!data.active) data.active = [];
-    if (!data.away) data.away = [];
-
-    const liveEmbed = new EmbedBuilder()
-      .setTitle('🏛️ Imperial Services - Live Duty Roster Matrix')
-      .setColor('#a04be0')
-      .setDescription('Real-time operational availability metrics for verified middleman systems.')
-      .addFields(
-        { name: '🟢 Active & Ready', value: data.active.length > 0 ? data.active.map(id => `⚔️ <@${id}>`).join('\n') : '*No Middlemen currently on active duty*', inline: false },
-        { name: '🔴 Away / Unavailable', value: data.away.length > 0 ? data.away.map(id => `💤 <@${id}>`).join('\n') : '*No staff listed away*', inline: false }
-      )
-      .addFields({
-        name: '📊 Global Status Telemetry',
-        value: `✨ **Active Vanguard Units:** \`${data.active.length}\` online\n🏰 Use \`/mmstatus\` in your status updates room to switch states.`
-      })
-      .setTimestamp();
-
-    const messages = await channel.messages.fetch({ limit: 10 }).catch(() => []);
-    const existingBotMessage = messages.find(msg => msg.author.id === discordClient.user.id);
-
-    if (existingBotMessage) {
-      await existingBotMessage.edit({ embeds: [liveEmbed] });
-    } else {
-      await channel.send({ embeds: [liveEmbed] });
-    }
-  } catch (err) {
-    console.error('❌ Failed to synchronize live network roster telemetry:', err.message);
-  }
-}
-
-// --- SAFE MODULE CACHING MATRIX ---
-const activeModules = [];
-
-const runModule = (pathStr, name) => {
-  try {
-    const mod = require(pathStr);
-    if (typeof mod === 'function') {
-      activeModules.push({ execute: mod, name: name });
-    } else {
-      console.warn(`⚠️ Warning: ${name} does not export a direct functional initializer loop.`);
-    }
-  } catch (err) {
-    console.error(`❌ Failed to load module ${name}:`, err.message);
-  }
-};
-
-// ⚡ BACKGROUND LISTENERS ONLY
-runModule('./anti.js', 'Anti-System');
-runModule('./welcome.js', 'Welcome-System');
-runModule('./manifest.js', 'Manifest-System');
-runModule('./spam.js', 'Anti-Spam');
-runModule('./important.js', 'Shop-Announcement');
-runModule('./rules.js', 'Server-Rules');
-runModule('./cleaner.js', 'Cleaner-System');
-runModule('./leaderboard.js', 'Leaderboard-System');
-runModule('./react.js', 'Reaction-System');
-runModule('./reaction-ping.js', 'Reaction-Ping-System');
-runModule('./seed.js', 'Seed-Notification-System');
-runModule('./reaction-roles.js', 'Unified-Reaction-Roles');
-
-// --- CLIENT READY HANDLER ---
 client.once('ready', async () => {
-  console.log(`✅ Logged in successfully as ${client.user.tag}`);
+  console.log(`🚀 logged in safely as: ${client.user.tag}`);
   
-  console.log('⚡ Initializing background text/reaction structures...');
-  activeModules.forEach(mod => {
-    try {
-      mod.execute(client);
-    } catch (err) {
-      console.error(`❌ Failed to execute module ${mod.name}:`, err.message);
-    }
-  });
-
+  // Load Leaderboard Module Engine
   try {
-    if (typeof ticketLegacy === 'function') {
-      ticketLegacy(client);
-    }
-  } catch (err) {
-    console.error('❌ Legacy Ticket boot setup failed:', err.message);
+    const leaderboardEngine = require('./leaderboard.js');
+    leaderboardEngine(client);
+  } catch(err) {
+    console.error("Leaderboard engine loading error: ", err);
   }
 
-  // Auto deploy live panel upon initial launch
-  await updateLiveRosterPanel(client);
-
+  const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
   try {
-    console.log('🔄 Syncing fresh slash commands payload list with Discord...');
-    const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
-
-    const commandsData = [
-      searchCommand && searchCommand.data ? searchCommand.data.toJSON() : null,
-      profileCommand && profileCommand.data ? profileCommand.data.toJSON() : null,
-      {
-        name: 'checkvouches',
-        description: 'Imperial Staff monitor terminal to audit vouch records',
-        options: [{ name: 'target', type: 6, description: 'User to run a background profile check on', required: false }]
-      },
-      { 
-        name: 'vouch', 
-        description: 'Formalize a trade reputation', 
-        options: [
-          { name: 'user', type: 6, description: 'The user you are vouching for', required: true },
-          { name: 'proof', type: 11, description: 'Upload a screenshot showing transaction completion proof', required: true }
-        ] 
-      },
-      {
-        name: 'scam',
-        description: 'Report a fraudulent transaction or user directly to staff logs',
-        options: [
-          { name: 'user', type: 6, description: 'The user you are reporting', required: true },
-          { name: 'reason', type: 3, description: 'Briefly explain what happened', required: true },
-          { name: 'proof', type: 11, description: 'Upload transaction/chat screens showing the scam', required: true }
-        ]
-      },
-      { 
-        name: 'rep', 
-        description: 'Check reputation count', 
-        options: [{ name: 'user', type: 6, description: 'User to check', required: false }] 
-      },
-      new SlashCommandBuilder()
-        .setName('ticketpanel')
-        .setDescription('Spawns the Imperial Middleman Ticket request interface')
-        .toJSON(),
-      new SlashCommandBuilder()
-        .setName('mmstatus')
-        .setDescription('Change your active duty availability status')
-        .addStringOption(option =>
-          option.setName('status')
-            .setDescription('Choose your live availability status')
-            .setRequired(true)
-            .addChoices(
-              { name: '🟢 Active Duty (Available Now)', value: 'active' },
-              { name: '🔴 Away / Offline', value: 'away' }
-            ))
-        .toJSON(),
-        
-      taxModule && taxModule.data ? taxModule.data.toJSON() : null
-    ].filter(cmd => cmd !== null);
-
-    await rest.put(
-      Routes.applicationCommands(client.user.id),
-      { body: commandsData }
-    );
-    console.log('🚀 Successfully updated commands global registry layout.');
-
+    await rest.put(Routes.applicationCommands(client.user.id), { body: commands });
+    console.log('✅ Synchronized global slash routing nodes completely.');
   } catch (error) {
-    console.error('❌ Failed to register slash commands:', error);
+    console.error('❌ Failed slash command population:', error);
   }
 });
 
-// 🔄 AUTOMATIC OFFLINE MONITOR DETECTOR ENGINE HOOK
-client.on('presenceUpdate', async (oldPresence, newPresence) => {
-  if (!newPresence || !newPresence.userId) return;
-
-  if (newPresence.status === 'offline') {
-    const STATUS_FILE = path.join(__dirname, '../mm_duty_status.json');
-    
-    if (fs.existsSync(STATUS_FILE)) {
-      try {
-        let data = JSON.parse(fs.readFileSync(STATUS_FILE, 'utf8'));
-        let recordChanged = false;
-
-        if (!data.active) data.active = [];
-        if (!data.away) data.away = [];
-
-        if (data.active.includes(newPresence.userId)) {
-          data.active = data.active.filter(id => id !== newPresence.userId);
-          if (!data.away.includes(newPresence.userId)) {
-            data.away.push(newPresence.userId);
-          }
-          recordChanged = true;
-        }
-
-        if (recordChanged) {
-          fs.writeFileSync(STATUS_FILE, JSON.stringify(data, null, 2));
-          console.log(`[Roster Sync] 🏃‍♂️ Staff member <@${newPresence.userId}> logged off or went invisible. Shifted automatically to away status.`);
-          await updateLiveRosterPanel(client);
-        }
-      } catch (err) {
-        console.error('❌ Roster system failed auto sync parsing:', err.message);
-      }
-    }
-  }
-});
-
-// --- CENTRAL GATEWAY HUB ---
+// --- GLOBAL EVENT ROUTER INTERACTION ROUTING MATRIX ---
 client.on('interactionCreate', async (interaction) => {
   if (interaction.isChatInputCommand()) {
     const { commandName } = interaction;
-    if (commandName === 'profile') { try { if (profileCommand) await profileCommand.executeProfile(interaction); } catch (e) { console.error(e); } return; }
-    if (commandName === 'vouch') { try { if (vouchModule.executeVouch) { await vouchModule.executeVouch(interaction); } else if (typeof vouchModule === 'function') { await vouchModule(interaction); } } catch (e) { console.error(e); } return; }
-    if (commandName === 'rep') { try { if (vouchModule.executeRep) await vouchModule.executeRep(interaction); } catch (e) { console.error(e); } return; }
-    if (commandName === 'scam') { try { await scamModule.executeScam(interaction); } catch (e) { console.error(e); } return; }
-    if (commandName === 'tax') { try { if (taxModule && taxModule.execute) { await taxModule.execute(interaction); } } catch (e) { console.error('❌ Tax Command Error:', e); } return; }
-    if (commandName === 'checkvouches') { try { if (monitorModule.execute) { await monitorModule.execute(interaction); } else if (typeof monitorModule === 'function') { await monitorModule(interaction); } } catch (e) { console.error(e); } return; }
-    if (commandName === 'mmstatus') { try { if (mmStatusModule.execute) { await mmStatusModule.execute(interaction); } else if (typeof mmStatusModule === 'function') { await mmStatusModule(interaction); } } catch (e) { console.error(e); } return; }
-    if (commandName === 'ticketpanel') { try { if (ticketSystemModule.executeCommand) { await ticketSystemModule.executeCommand(interaction); } else if (typeof ticketSystemModule === 'function') { await ticketSystemModule(interaction); } } catch (e) { console.error(e); } return; }
+    try {
+      if (commandName === 'vouch') await vouchModule.executeVouch(interaction);
+      if (commandName === 'scam') await scamModule.executeScam(interaction);
+      if (commandName === 'tax') await taxModule.executeTax(interaction);
+      if (commandName === 'mmstatus') await mmStatusModule.executeStatus(interaction);
+      if (commandName === 'ticketsystem') await ticketSystemModule.executeCommand(interaction);
+      if (commandName === 'profile') await profileCommand.executeProfile(interaction);
+      if (commandName === 'search') await searchCommand.executeSearch(interaction);
+    } catch (err) {
+      console.error(`Error processing command /${commandName}:`, err);
+    }
+    return;
   }
 
   if (interaction.isButton()) {
     const { customId } = interaction;
-    
-    // Pass general ticket actions directly to modular structure
-    if (customId === 'open_mm_ticket' || customId === 'open_mm_paid' || customId === 'open_mm_donate' || customId === 'close_mm_ticket' || customId === 'claim_mm_ticket' || customId.startsWith('mm_trade_') || customId.startsWith('force_purge_')) {
-      try { if (ticketSystemModule.handleButton) await ticketSystemModule.handleButton(interaction); } catch (e) { console.error(e); }
+
+    // CENTRAL ROUTE COUPLING: Safely forward all ticket interactions to ticketsystem.js
+    if (
+      customId === 'open_paid_ticket' || 
+      customId === 'open_free_ticket' || 
+      customId === 'claim_mm_ticket' || 
+      customId === 'close_mm_ticket' || 
+      customId.startsWith('complete_mm_') || 
+      customId.startsWith('vouch_btn_')
+    ) {
+      try {
+        await ticketSystemModule.handleInteraction(interaction);
+      } catch (err) {
+        console.error('Error within Ticket System Interaction module forwarding:', err);
+      }
       return;
     }
 
-    // 🎟️ FEATURE 2: AUTOMATED ONE-CLICK VOUCH TRANSACTION INJECTION
-    if (customId.startsWith('submit_auto_vouch_')) {
-      const middlemanId = customId.split('_')[3];
-      const vouchFilePath = path.join(__dirname, '../vouches.json');
-      const trackFilePath = path.join(__dirname, '../vouch_claims_tracks.json');
-
-      if (interaction.user.id === middlemanId) {
-        return interaction.reply({ content: '❌ You cannot vouch for yourself!', ephemeral: true });
-      }
-
-      let tracking = fs.existsSync(trackFilePath) ? JSON.parse(fs.readFileSync(trackFilePath, 'utf8')) : [];
-      const trackingSignature = `${interaction.user.id}_${interaction.channel.id}`;
-
-      if (tracking.includes(trackingSignature)) {
-        return interaction.reply({ content: '❌ You have already submitted your vouch for this specific ticket operation.', ephemeral: true });
-      }
-
-      let db = fs.existsSync(vouchFilePath) ? JSON.parse(fs.readFileSync(vouchFilePath, 'utf8')) : {};
-      db[middlemanId] = (db[middlemanId] || 0) + 1;
-      fs.writeFileSync(vouchFilePath, JSON.stringify(db, null, 2));
-
-      tracking.push(trackingSignature);
-      fs.writeFileSync(trackFilePath, JSON.stringify(tracking, null, 2));
-
-      return interaction.reply({ 
-        content: `✅ **Vouch Recorded!** Added 1 vouch point to <@${middlemanId}>'s standing records matrix. (Total: \`${db[middlemanId]}\`)`,
-        ephemeral: false 
-      });
-    }
-
-    if (customId.startsWith('scam_')) { try { await scamModule.handleScamButton(interaction); } catch (e) { console.error(e); } return; }
-    if (customId.startsWith('claim_')) { try { if (ticketLegacy && ticketLegacy.handleInteraction) await ticketLegacy.handleInteraction(interaction); } catch (e) { console.error(e); } return; }
-    
+    // Handle separate system administration buttons
     if (customId.startsWith('unmute_')) {
-      if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) { return await interaction.reply({ content: '❌ You do not have permission to unmute users.', ephemeral: true }); }
+      if (!interaction.member.permissions.has(PermissionFlagsBits.ModerateMembers)) { 
+        return await interaction.reply({ content: '❌ You do not have permission to unmute users.', ephemeral: true }); 
+      }
       const targetUserId = customId.split('_')[1];
       try {
         const targetMember = await interaction.guild.members.fetch(targetUserId);
         await targetMember.timeout(null, `Manually unmuted via log dashboard button by ${interaction.user.tag}`);
         const updatedEmbed = EmbedBuilder.from(interaction.message.embeds[0]).setColor('#a04be0').addFields({ name: '🔊 Action Status Updates', value: `✅ User manually unmuted by ${interaction.user}` });
         await interaction.update({ embeds: [updatedEmbed], components: [] });
-      } catch (error) { console.error('❌ Failed to execute button unmute operation:', error); }
+      } catch (error) { 
+        console.error('❌ Failed to execute button unmute operation:', error); 
+      }
       return;
     }
   }
 
   if (interaction.isModalSubmit()) {
     const { customId } = interaction;
-    if (customId === 'mm_form_paid' || customId === 'mm_form_donate') { try { if (ticketSystemModule.handleModal) await ticketSystemModule.handleModal(interaction); } catch (e) { console.error(e); } return; }
-    if (customId === 'scam_report_modal') { try { await scamModule.handleScamModal(interaction); } catch (e) { console.error(e); } return; }
+    
+    // Pass modal setup window interactions straight into ticketsystem.js
+    if (customId === 'modal_paid_ticket' || customId === 'modal_free_ticket') {
+      try {
+        await ticketSystemModule.handleInteraction(interaction);
+      } catch (e) {
+        console.error(e);
+      }
+      return;
+    }
+
+    if (customId === 'scam_report_modal') { 
+      try { 
+        await scamModule.handleScamModal(interaction); 
+      } catch (e) { 
+        console.error(e); 
+      } 
+      return; 
+    }
   }
 });
 
-// Export helper loop globally if required by modular architecture files
-module.exports = { client, updateLiveRosterPanel };
+// --- AUTOMATIC COMPREHENSIVE TEXT ANALYSIS SECURITY RADAR ENGINE ---
+client.on('messageCreate', async (message) => {
+  if (message.author.bot || !message.guild) return;
 
-client.login(process.env.TOKEN);
+  const LOG_CHANNEL_ID = '1326444654924206121';
+  const inputLower = message.content.toLowerCase();
+
+  // 1. DESTRUCTIVE LINK FILTER (DISCORD INVITATIONS SCANNER)
+  if (inputLower.includes('discord.gg/') || inputLower.includes('discord.com/invite/')) {
+    if (message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
+
+    try {
+      await message.delete();
+      await message.member.timeout(600000, 'Posting unauthorized background discord invitations links.');
+      
+      const alertPrivate = new EmbedBuilder()
+        .setTitle('⚠️ Security Infraction Notice')
+        .setColor('#e74c3c')
+        .setDescription('Your profile account has been muted for **10 minutes** for streaming promotional invitations anchors.');
+      await message.author.send({ embeds: [alertPrivate] }).catch(() => null);
+
+      const logChan = await message.guild.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
+      if (logChan) {
+        const logEmbed = new EmbedBuilder()
+          .setTitle('🛡️ Automated Firewall Block')
+          .setColor('#e74c3c')
+          .addFields(
+            { name: '👤 Offender User', value: `${message.author} (${message.author.id})`, inline: true },
+            { name: '⚖️ Action Enforced', value: 'Content Purge & 10m Mute', inline: true },
+            { name: '📝 Intercepted Value', value: `\`\`\`${message.content}\`\`\`` }
+          );
+        const unmuteRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId(`unmute_${message.author.id}`).setLabel('Revoke Mute Punishment').setStyle(ButtonStyle.Danger)
+        );
+        await logChan.send({ embeds: [logEmbed], components: [unmuteRow] });
+      }
+    } catch (e) {
+      console.error('Firewall engine exception:', e);
+    }
+    return;
+  }
+
+  // 2. SCAM PHISHING DOMAINS & RESTRICTED PHRASE MATRICES
+  const prohibitedPhrases = [
+    'free nitro', 'nitro gift', 'steam-nitro', 'discorcl', 'dlscord', 
+    'gift-nitro', 'promonitro', 'cliscord', 'boost-nitro'
+  ];
+
+  const triggerFound = prohibitedPhrases.some(phrase => inputLower.includes(phrase));
+  if (triggerFound) {
+    if (message.member.permissions.has(PermissionFlagsBits.ManageMessages)) return;
+
+    try {
+      await message.delete();
+      await message.member.timeout(3600000, 'Phishing scam link / compromise signature detection.');
+
+      const userNotice = new EmbedBuilder()
+        .setTitle('🛑 Critical Security Alert')
+        .setColor('#ef4444')
+        .setDescription('Your profile has been locked under a **1-hour quarantine** due to malicious link structural patterns matching blacklisted servers.');
+      await message.author.send({ embeds: [userNotice] }).catch(() => null);
+
+      const securityLogs = await message.guild.channels.fetch(LOG_CHANNEL_ID).catch(() => null);
+      if (securityLogs) {
+        const defenseEmbed = new EmbedBuilder()
+          .setTitle('🚨 Malicious Phishing Signature Isolated')
+          .setColor('#ef4444')
+          .addFields(
+            { name: '👤 Suspect Account', value: `${message.author} (${message.author.id})`, inline: true },
+            { name: '🛡️ Quarantine Timeline', value: '1 Hour System Suspension', inline: true },
+            { name: '☣️ Raw Output Log', value: `\`\`\`${message.content}\`\`\`` }
+          );
+        const actionRow = new ActionRowBuilder().addComponents(
+          new ButtonBuilder().setCustomId(`unmute_${message.author.id}`).setLabel('Pardon Account Security Lockout').setStyle(ButtonStyle.Success)
+        );
+        await securityLogs.send({ embeds: [defenseEmbed], components: [actionRow] });
+      }
+    } catch (err) {
+      console.error('Malicious structural interceptor fault:', err);
+    }
+    return;
+  }
+});
+
+module.exports = { client };
