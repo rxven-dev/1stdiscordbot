@@ -139,13 +139,19 @@ module.exports = {
       progressString = '🟩'.repeat(filledBlocks) + '⬛'.repeat(emptyBlocks) + ` (${totalVouches}/${requiredForNext})`;
     }
 
-    // Dynamic Middleman Authorization Check (No manual IDs required!)
+    // Dynamic Middleman Authorization Check (Normalized String Matching Engine)
     let mmStatus = '❌ Unverified Citizen';
+    
     const isStaff = guildMember && (
       guildMember.id === interaction.guild.ownerId ||
       guildMember.roles.cache.some(r => {
-        const n = r.name.toLowerCase();
-        return n.includes('chancellor') || n.includes('commander') || n.includes('legend') || n.includes('vanguard lord');
+        const nameClean = r.name.toLowerCase();
+        // Added 'highness' to completely secure your owner account rank metrics!
+        return nameClean.includes('highness') || 
+               nameClean.includes('chancellor') || 
+               nameClean.includes('commander') || 
+               nameClean.includes('legend') || 
+               nameClean.includes('vanguard lord');
       })
     );
 
