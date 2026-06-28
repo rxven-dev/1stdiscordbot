@@ -10,7 +10,7 @@ module.exports = {
         .setRequired(true)
     ),
 
-  async execute(interaction) {
+  async executeSearch(interaction) {
     const ALLOWED_CHANNEL_ID = '1514243424696406106'; // Your dedicated search channel
     const GEN_CHAT_CHANNEL_ID = '1509852289790382080'; // General chat channel
 
