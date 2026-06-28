@@ -6,7 +6,8 @@ const VOUCH_FILE = path.join(__dirname, '../vouches.json');
 
 module.exports = {
   name: 'checkvouches',
-  async execute(interaction) {
+  // 🟢 CHANGED: Rename this method so index.js can target it uniquely!
+  async executeMonitor(interaction) { 
     if (!interaction.member.permissions.has(PermissionFlagsBits.ManageGuild)) {
       return interaction.reply({ content: '❌ Access Denied. This monitoring terminal is reserved for Imperial Staff only.', ephemeral: true });
     }
