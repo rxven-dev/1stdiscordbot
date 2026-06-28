@@ -41,7 +41,7 @@ const scamModule         = require('./modules/scam.js');
 const monitorModule      = require('./modules/monitor.js'); 
 
 // Initialize cleaner/moderation system hooks
-const cleanerSystem      = require('./cleaner.js');
+const cleanerSystem      = require('./modules/cleaner.js');
 cleanerSystem(client);
 
 // --- ABSOLUTE DISCORD GLOBAL SLASH REGISTRY LOADER ---
