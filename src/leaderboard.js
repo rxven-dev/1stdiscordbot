@@ -1,10 +1,15 @@
 const fs = require('fs');
 const { EmbedBuilder } = require('discord.js');
+const path = require('path');
+
+// Direct check if Railway volume storage exists physically on server
+const dataDir = fs.existsSync('/data') ? '/data' : process.cwd();
+const VOUCH_FILE = path.join(dataDir, 'vouches.json');
+const BLACKLIST_FILE = path.join(dataDir, 'blacklist.json');
+const stateFile = path.join(dataDir, 'leaderboard_state.json');
 
 module.exports = (client) => {
   const channelId = '1514622201716801546';
-  const stateFile = './leaderboard_state.json';
-  const BLACKLIST_FILE = './blacklist.json';
 
   const postLeaderboard = async () => {
     const today = new Date().toISOString().split('T')[0];
@@ -29,7 +34,8 @@ module.exports = (client) => {
         return;
       }
 
-      const data = fs.existsSync('./vouches.json') ? JSON.parse(fs.readFileSync('./vouches.json', 'utf8')) : {};
+      // CRITICAL PATH ROUTING ALIGNMENT FIX
+      const data = fs.existsSync(VOUCH_FILE) ? JSON.parse(fs.readFileSync(VOUCH_FILE, 'utf8')) : {};
       const blacklist = fs.existsSync(BLACKLIST_FILE) ? JSON.parse(fs.readFileSync(BLACKLIST_FILE, 'utf8')) : [];
 
       // 🔥 FILTER OUT BLACKLISTED USERS FROM LEADERBOARD SORTS
@@ -38,24 +44,30 @@ module.exports = (client) => {
         .sort(([, a], [, b]) => b - a)
         .slice(0, 3);
 
+      // Cleaned formatting template string list conversion structure
+      let leaderboardDescription = 'No vouches yet!';
+      if (sorted.length > 0) {
+        leaderboardDescription = sorted.map((val, index) => `${index + 1}. <@${val[0]}> - **${val[1]}** vouches`).join('\n');
+      }
+
       const embed = new EmbedBuilder()
         .setTitle('🏆 Daily Top 3 Middlemen')
         .setColor('#a04be0')
-        .setDescription(sorted.length > 0 
-          ? sorted.map((val, index) => `${index + 1}. <@${val[0]}> - **${val[1]}** vouches`).join('\n') 
-          : 'No vouches yet!')
+        .setDescription(leaderboardDescription)
         .setTimestamp();
 
       await channel.send({ embeds: [embed] });
       
       state.lastPosted = today;
       fs.writeFileSync(stateFile, JSON.stringify(state, null, 2));
-      console.log('✅ Leaderboard posted successfully.');
+      console.log('✅ Daily leaderboard posted with absolute volume tracking path synchronization!');
     } catch (err) {
-      console.error('❌ Leaderboard Error:', err);
+      console.error('❌ Failed leaderboard daily scheduler post task execution error:', err);
     }
   };
 
-  postLeaderboard();
-  setInterval(postLeaderboard, 3600000); 
+  // Run immediately on bootup check
+  setTimeout(postLeaderboard, 5000);
+  // Re-verify task cycle route every single hour
+  setInterval(postLeaderboard, 3600000);
 };

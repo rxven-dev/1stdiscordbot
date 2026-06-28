@@ -176,17 +176,20 @@ module.exports = {
         return interaction.reply({ content: '❌ Security Exception: Operators cannot vouch for their own matrix files.', ephemeral: true });
       }
 
-      // Read database dynamically from the absolute storage path right when clicked
+      // CRITICAL FIX: Instantly tell Discord we are processing, solving "Interaction Failed"
+      await interaction.deferReply();
+
+      // Read database dynamically from the absolute persistent cloud storage path
       let db = fs.existsSync(VOUCH_FILE) ? JSON.parse(fs.readFileSync(VOUCH_FILE, 'utf8')) : {};
 
       // Increment value on the production database object
       db[middlemanId] = (db[middlemanId] || 0) + 1;
 
-      // CRITICAL DIRECT SYSTEM FLUSH: Write update back to the exact volume path immediately
+      // Write update back to the exact persistent volume path immediately
       fs.writeFileSync(VOUCH_FILE, JSON.stringify(db, null, 2), 'utf8');
 
-      // Reply using the absolute accurate live file total 
-      return await interaction.reply({
+      // Edit our deferred reply with the absolute accurate live file total 
+      return await interaction.editReply({
         content: `✅ **Vouch Recorded!** Added 1 vouch point to <@${middlemanId}>'s standing records matrix. (Total: **${db[middlemanId]}**)`
       });
     }
