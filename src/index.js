@@ -25,9 +25,9 @@ const client = new Client({
     GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers,
     GatewayIntentBits.GuildPresences,
-    GatewayIntentBits.GuildMessageReactions // 🔥 ADDED: Allows bot to receive reaction role signals
+    GatewayIntentBits.GuildMessageReactions // 🔥 Enables the bot to process reaction clicks
   ],
-  // 🔥 UPDATED PARTIALS: Allows bot to fetch message/user properties on old messages
+  // 🔥 Allows the bot to read reaction updates on historical messages
   partials: [Partials.Message, Partials.Channel, Partials.Reaction, Partials.User]
 });
 
@@ -36,23 +36,22 @@ const searchCommand      = require('./commands/search.js');
 const profileCommand     = require('./commands/profile.js');
 const taxModule          = require('./commands/tax.js');
 const mmStatusModule     = require('./commands/mmstatus.js');
-const ticketsystemCommand = require('./commands/ticketsystem.js');
+const ticketsystemCommand = require('./commands/ticketsystem.js'); // ✅ Fixed lowercase case-sensitivity reference
 
 const vouchModule        = require('./modules/vouch.js');
 const scamModule         = require('./modules/scam.js');
 const monitorModule      = require('./modules/monitor.js'); 
 
 // 🔥 LINK REACTION ROLE MODULE LAYER:
-// Injects your reaction system file layer dynamically at runtime
 try {
-  const reactionRoleSystem = require('./cleaner.js'); 
+  const reactionRoleSystem = require('./modules/reaction-roles.js'); 
   reactionRoleSystem(client);
 } catch (e) {
   console.error("⚠️ Failed loading reaction role system hook mapping layout:", e.message);
 }
 
 // Initialize cleaner/moderation system hooks
-const cleanerSystem      = require('./cleaner.js');
+const cleanerSystem      = require('./modules/cleaner.js');
 cleanerSystem(client);
 
 // --- ABSOLUTE DISCORD GLOBAL SLASH REGISTRY LOADER ---
@@ -130,6 +129,7 @@ client.on('interactionCreate', async (interaction) => {
     // 2. ROUTE BUTTON & MODAL COMPONENT INTERACTIONS (Fixes your ticket system!)
     if (interaction.isButton() || interaction.isModalSubmit()) {
       if (ticketsystemCommand && typeof ticketsystemCommand.handleInteraction === 'function') {
+        // ✅ Fixed Variable Hook Execution Target Match:
         await ticketsystemCommand.handleInteraction(interaction);
       }
       return;
@@ -139,6 +139,7 @@ client.on('interactionCreate', async (interaction) => {
     console.error('❌ Error processing structural connection interaction node:', error);
     
     if (!interaction.replied && !interaction.deferred) {
+      // ✅ Upgraded deprecated property setup to modern flags standard
       await interaction.reply({ content: '❌ An internal framework routing failure occurred processing this operation.', flags: MessageFlags.Ephemeral }).catch(() => {});
     }
   }
