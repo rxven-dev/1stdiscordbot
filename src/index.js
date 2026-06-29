@@ -36,9 +36,9 @@ const taxModule          = require('./commands/tax.js');
 const mmStatusModule     = require('./commands/mmstatus.js');
 const ticketsystemCommand = require('./commands/ticketsystem.js'); // ✅ Fixed lowercase case-sensitivity reference
 
-const vouchModule        = require('./modules/vouch.js');
-const scamModule         = require('./modules/scam.js');
-const monitorModule      = require('./modules/monitor.js'); 
+const vouchModule        = require('./modules/Vouch.js');
+const scamModule         = require('./modules/Scam.js');
+const monitorModule      = require('./modules/Monitor.js');
 
 // Initialize cleaner/moderation system hooks
 const cleanerSystem      = require('./modules/cleaner.js');
